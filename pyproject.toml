@@ -24,6 +24,7 @@ dependencies = [
     "pandas",
     "pytz",
     "netCDF4",
+    "xarray".
     "requests",
     "arm_pyart",
     "PySide6"
