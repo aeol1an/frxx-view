@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "frxx-view"
-version = "0.0.1"
+version = "0.0.2"
 description = "Weather radar visualization GUI for (but not limited to) frxx."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -19,14 +19,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Atmospheric Science",
 ]
 dependencies = [
-    "numpy",
-    "matplotlib",
-    "pandas",
-    "pytz",
-    "netCDF4",
-    "xarray".
-    "requests",
-    "arm_pyart",
+    "frxx",
     "PySide6"
 ]
 
