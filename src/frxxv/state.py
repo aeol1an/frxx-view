@@ -7,7 +7,7 @@ Qt signals — they never talk to each other directly.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Callable
 
 from PySide6.QtCore import QObject, Signal
 
@@ -23,7 +23,8 @@ class PanelState:
     plot: Any = None          # primary artist (QuadMesh, etc.)
     cb: Any   = None          # Colorbar (or None)
     xlim: Optional[Tuple[float, float]] = None
-    y_center: Optional[float] = None
+    ylim: Optional[Tuple[float, float]] = None
+    updater: Optional[Callable] = None
 
 
 class AppState(QObject):

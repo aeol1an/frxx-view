@@ -1,3 +1,5 @@
+from math import sqrt
+
 """
 Central configuration constants.
 All magic numbers live here so they're easy to find and change.
@@ -10,8 +12,8 @@ BORDER_WIDTH_PX  = 2
 BORDER_RADIUS_PX = 4
 
 # ── Panel sizing ────────────────────────────────────────────────────
-MIN_PANEL_WIDTH_INCHES  = 2.0
-MIN_PANEL_HEIGHT_INCHES = 2.0 ** 0.5   # √2 ≈ 1.414 in
+MIN_PANEL_WIDTH_INCHES  = 3.
+MIN_PANEL_HEIGHT_INCHES = 3. / sqrt(2)   # √2 ≈ 1.414 in
 
 # ── Layouts ─────────────────────────────────────────────────────────
 # Each entry is a list of (row, col, rowspan, colspan) per visible panel.
@@ -27,5 +29,5 @@ LAYOUTS = {
 NUM_PANELS = 4  # total persistent panels (book pages)
 
 # ── Timing ──────────────────────────────────────────────────────────
-RESIZE_DEBOUNCE_MS      = 150
+RESIZE_DEBOUNCE_MS      = 0
 DEFAULT_POLL_INTERVAL_MS = 2000

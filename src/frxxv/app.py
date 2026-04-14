@@ -15,11 +15,13 @@ from PySide6.QtGui import QIcon
 
 from frxxv.main_window import MainWindow
 
-def main(demo: bool = False):
+def main():
 
     icon_path = str(files("frxxv")/ '..' / '..' / "assets" / "frxx_icon.png")
 
     sys.argv[0] = "Frxx View"
+    demo = "--demo" in sys.argv
+
     app = QApplication(sys.argv)
 
     setproctitle.setproctitle("Frxx View")
@@ -39,13 +41,14 @@ def main(demo: bool = False):
     window = MainWindow()
 
     if demo:
-        from frxxv.plotting.ppi import demo_plot_factory
+        from frxxv.plotting.ppi import ppi_factory
         from frxxv.config import LAYOUTS
 
-        window.panel_grid.set_plot_factory(demo_plot_factory)
+        panels = window.panel_grid.panels
         visible = len(LAYOUTS[window.state.layout])
         for i in range(visible):
-            window.panel_grid.replot_panel(i)
+            panels[i].set_plot_factory(ppi_factory)
+            panels[i].replot()
 
     window.show()
     sys.exit(app.exec())

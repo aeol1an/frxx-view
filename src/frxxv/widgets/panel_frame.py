@@ -11,6 +11,12 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, QTimer, QEvent
 from PySide6.QtWidgets import QFrame, QVBoxLayout
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+from matplotlib.backends.backend_qtagg import NavigationToolbar2QT
+
+from typing import Callable, Optional
+
+PlotFactory   = Callable[..., None]
+UpdateFactory = Callable[..., bool]
 
 from frxxv.config import (
     BORDER_COLOR_SELECTED,
@@ -42,18 +48,25 @@ class PanelFrame(QFrame):
         self._inner_layout.setSpacing(0)
 
         # Minimum size derived from config (in pixels at current logical DPI)
-        dpi_x = max(self.logicalDpiX(), 72)
-        dpi_y = max(self.logicalDpiY(), 72)
+        self.dpi_x = max(self.logicalDpiX()*self.devicePixelRatio(), 72)
+        self.dpi_y = max(self.logicalDpiY()*self.devicePixelRatio(), 72)
         self.setMinimumSize(
-            int(MIN_PANEL_WIDTH_INCHES * dpi_x),
-            int(MIN_PANEL_HEIGHT_INCHES * dpi_y),
+            int(MIN_PANEL_WIDTH_INCHES * self.dpi_x),
+            int(MIN_PANEL_HEIGHT_INCHES * self.dpi_y),
         )
+
+        self._plot_factory:   Optional[PlotFactory]   = None
+        self._update_factory: Optional[UpdateFactory] = None
 
         # Debounce timer for resize-relim
         self._resize_timer = QTimer(self)
         self._resize_timer.setSingleShot(True)
         self._resize_timer.setInterval(RESIZE_DEBOUNCE_MS)
         self._resize_timer.timeout.connect(self._on_debounced_resize)
+
+
+        self._xsyncing = False
+        self._ysyncing = False
 
         # React to selection changes
         self.state.selection_changed.connect(self._update_border)
@@ -71,20 +84,62 @@ class PanelFrame(QFrame):
             f"}}"
         )
 
-    # ── Selection via right-click ───────────────────────────────────
+    # ── Plot Factory ────────────────────────────────────────────────
 
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.RightButton:
-            self.state.selected = self.index
-        super().mousePressEvent(event)
+    def set_plot_factory(self, factory: PlotFactory):
+        """
+        Register the function that creates a figure from scratch.
+
+        Expected to mutate the PanelState in-place:
+            factory(panel_state, scan_data, width_in, height_in, dpi) -> None
+        """
+        self._plot_factory = factory
+
+    def set_update_factory(self, factory: UpdateFactory):
+        """
+        Register an optional fast-update function (e.g. set_array).
+
+        Expected signature:
+            factory(panel_state, scan_data) -> bool
+        """
+        self._update_factory = factory
+
+    # ── Event filter, handle events ─────────────────────────────────   
 
     def eventFilter(self, obj, event):
         """Catch right-clicks on the hosted canvas for selection."""
-        if obj is self.canvas and event.type() == QEvent.Type.MouseButtonPress:
-            if event.button() == Qt.MouseButton.RightButton:
-                self.state.selected = self.index
-                # Don't consume — MPL can still see it if needed
+        if obj is self.canvas:
+            handler = {
+                QEvent.Type.MouseButtonPress: self._handle_mouse_press,
+                # QEvent.Type.Wheel: self._handle_wheel,
+                # QEvent.Type.NativeGesture: self._handle_gesture,
+            }.get(event.type())
+            
+            if handler:
+                return handler(event)
+    
         return super().eventFilter(obj, event)
+
+    # Right click selection - qt
+    def _handle_mouse_press(self, event):
+        if event.button() == Qt.MouseButton.RightButton:
+            self.state.selected = self.index
+        return False
+    
+    # Zoom - mpl
+    def _handle_zoom(self, event):
+        if self.canvas is None:
+            return
+        ax = event.inaxes
+        if ax is None:
+            return
+        scale = 0.9 if event.button == 'up' else 1.1
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        xdata, ydata = event.xdata, event.ydata
+        ax.set_xlim([xdata - (xdata - xlim[0]) * scale, xdata + (xlim[1] - xdata) * scale])
+        ax.set_ylim([ydata - (ydata - ylim[0]) * scale, ydata + (ylim[1] - ydata) * scale])
+        self.canvas.draw_idle()
 
     # ── Canvas lifecycle ────────────────────────────────────────────
 
@@ -101,6 +156,33 @@ class PanelFrame(QFrame):
         self._inner_layout.addWidget(new_canvas)
         new_canvas.installEventFilter(self)
 
+    # ── Replot self  ────────────────────────────────────────────────
+
+    def replot(self):
+        if self._plot_factory is None:
+            return
+        ps = self.state.panels[self.index]
+        dpi = self.display_dpi
+
+        self._plot_factory(ps, self.state.scan_data,
+                            self.width_inches, self.height_inches, dpi)
+        
+        if ps.fig is not None:
+            canvas = FigureCanvasQTAgg(ps.fig)
+            self.set_canvas(canvas)
+
+        if self.canvas is None:
+            return
+
+        self.canvas.mpl_connect('scroll_event', self._handle_zoom)
+
+        toolbar = NavigationToolbar2QT(self.canvas, self)
+        toolbar.hide()
+        toolbar.pan()
+
+        ps.ax.callbacks.connect('xlim_changed', self.on_xlim_change)
+        ps.ax.callbacks.connect('ylim_changed', self.on_ylim_change)
+
     # ── Resize → relim (no replot) ──────────────────────────────────
 
     def resizeEvent(self, event):
@@ -108,32 +190,46 @@ class PanelFrame(QFrame):
         self._resize_timer.start()
 
     def _on_debounced_resize(self):
+
         if self.canvas is None:
             return
         ps = self.state.panels[self.index]
-        if ps.ax is None or ps.xlim is None or ps.y_center is None:
+        if ps.ax is None or ps.xlim is None or ps.ylim is None:
             return
 
         w = self.canvas.width()
         h = self.canvas.height()
         if w <= 0 or h <= 0:
             return
-
+        #TODO: do math to preserve center, unifying lim changes
         x_extent = ps.xlim[1] - ps.xlim[0]
-        y_extent = x_extent * (h / w)
+        y_extent = ps.ylim[1] - ps.ylim[0]
+
         ps.ax.set_xlim(ps.xlim)
-        ps.ax.set_ylim(
-            ps.y_center - y_extent / 2,
-            ps.y_center + y_extent / 2,
-        )
+        ps.ax.set_ylim(ps.ylim)
+
+        
+        if ps.updater is not None :
+            ps.updater(ps.fig, ps.ax, ps.plot, ps.cb, self.width_inches, self.height_inches)
+
         self.canvas.draw_idle()
+
+    def on_xlim_change(self, ax):
+        self._resize_timer.start()
+
+    def on_ylim_change(self, ax):
+        self._resize_timer.start()
 
     # ── Geometry helpers (inches) ───────────────────────────────────
 
     @property
     def width_inches(self) -> float:
-        return self.width() / max(self.logicalDpiX(), 72)
+        return self.width() / max(self.logicalDpiX()*self.devicePixelRatio() , 72)
 
     @property
     def height_inches(self) -> float:
-        return self.height() / max(self.logicalDpiY(), 72)
+        return self.height() / max(self.logicalDpiY()*self.devicePixelRatio(), 72)
+    
+    @property
+    def display_dpi(self) -> float:
+        return max(self.logicalDpiX()*self.devicePixelRatio() , 72)

@@ -39,7 +39,9 @@ class MainWindow(QMainWindow):
         self._build_menu_bar()
         self._build_central()
 
-        self.resize(1024, 768)
+        
+
+        self.resize(512, 362)
 
     # ── Menu bar ────────────────────────────────────────────────────
 
