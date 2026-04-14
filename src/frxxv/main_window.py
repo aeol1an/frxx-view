@@ -20,7 +20,7 @@ from frxxv.controllers.file_manager import FileManager
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("frxxv")
+        self.setWindowTitle("Frxx View")
 
         # ── State ───────────────────────────────────────────────────
         self.state = AppState(self)

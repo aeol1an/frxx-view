@@ -6,13 +6,36 @@ Application entry point.
     main(demo=True)     # test figures
 """
 import sys
+import platform
+from importlib.resources import files
+import setproctitle
+
 from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QIcon
 
 from frxxv.main_window import MainWindow
 
-
 def main(demo: bool = False):
+
+    icon_path = str(files("frxxv")/ '..' / '..' / "assets" / "frxx_icon.png")
+
+    sys.argv[0] = "Frxx View"
     app = QApplication(sys.argv)
+
+    setproctitle.setproctitle("Frxx View")
+
+    try:
+        from AppKit import NSApplication, NSImage  # type: ignore
+        ns_app = NSApplication.sharedApplication()
+        ns_app.setApplicationIconImage_(NSImage.alloc().initWithContentsOfFile_(icon_path))
+    except ImportError:
+        pass
+
+    app.setApplicationName("Frxx View")
+    app.setApplicationDisplayName("Frxx View")
+
+    app.setWindowIcon(QIcon(icon_path))
+
     window = MainWindow()
 
     if demo:

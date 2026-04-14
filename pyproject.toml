@@ -23,6 +23,10 @@ dependencies = [
     "PySide6"
 ]
 
+[project.scripts]
+frxxv = "frxxv.app:main"
+frxx-view = "frxxv.app:main"
+
 [project.urls]
 "Homepage" = "https://github.com/aeol1an/frxx-view"
 "Bug Tracker" = "https://github.com/aeol1an/frxx-view/issues"
