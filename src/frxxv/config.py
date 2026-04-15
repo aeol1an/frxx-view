@@ -18,7 +18,7 @@ MIN_PANEL_HEIGHT_INCHES = 3. / sqrt(2)   # √2 ≈ 1.414 in
 # ── Layouts ─────────────────────────────────────────────────────────
 # Each entry is a list of (row, col, rowspan, colspan) per visible panel.
 # Book order: left→right, top→bottom.
-DEFAULT_LAYOUT = "2x2"
+DEFAULT_LAYOUT = "1x1"
 LAYOUTS = {
     "1x1": [(0, 0, 1, 1)],
     "1x2": [(0, 0, 1, 1), (0, 1, 1, 1)],

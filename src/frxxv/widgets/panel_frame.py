@@ -180,8 +180,8 @@ class PanelFrame(QFrame):
         toolbar.hide()
         toolbar.pan()
 
-        ps.ax.callbacks.connect('xlim_changed', self.on_xlim_change)
-        ps.ax.callbacks.connect('ylim_changed', self.on_ylim_change)
+        # ps.ax.callbacks.connect('xlim_changed', self.on_xlim_change)
+        # ps.ax.callbacks.connect('ylim_changed', self.on_ylim_change)
 
     # ── Resize → relim (no replot) ──────────────────────────────────
 
@@ -190,7 +190,6 @@ class PanelFrame(QFrame):
         self._resize_timer.start()
 
     def _on_debounced_resize(self):
-
         if self.canvas is None:
             return
         ps = self.state.panels[self.index]
@@ -201,16 +200,22 @@ class PanelFrame(QFrame):
         h = self.canvas.height()
         if w <= 0 or h <= 0:
             return
+        
         #TODO: do math to preserve center, unifying lim changes
-        x_extent = ps.xlim[1] - ps.xlim[0]
-        y_extent = ps.ylim[1] - ps.ylim[0]
+        x_center = ps.xlim[0] + (ps.xlim[1] - ps.xlim[0])/2
+        y_center = ps.ylim[0] + (ps.ylim[1] - ps.ylim[0])/2
 
-        ps.ax.set_xlim(ps.xlim)
-        ps.ax.set_ylim(ps.ylim)
+        x_extent_scale = x_
+
+        #ps.xlim = (x_center-w/2, x_center+w/2)
+
+
+        # ps.ax.set_xlim(ps.xlim)
+        # ps.ax.set_ylim(ps.ylim)
 
         
-        if ps.updater is not None :
-            ps.updater(ps.fig, ps.ax, ps.plot, ps.cb, self.width_inches, self.height_inches)
+        # if ps.updater is not None :
+        #     ps.updater(ps.fig, ps.ax, ps.plot, ps.cb, self.width_inches, self.height_inches)
 
         self.canvas.draw_idle()
 
