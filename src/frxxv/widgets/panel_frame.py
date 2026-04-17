@@ -205,7 +205,7 @@ class PanelFrame(QFrame):
         x_center = ps.xlim[0] + (ps.xlim[1] - ps.xlim[0])/2
         y_center = ps.ylim[0] + (ps.ylim[1] - ps.ylim[0])/2
 
-        x_extent_scale = x_
+        #x_extent_scale = x_
 
         #ps.xlim = (x_center-w/2, x_center+w/2)
 

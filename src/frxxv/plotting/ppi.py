@@ -20,16 +20,16 @@ def ppi_factory(panel_state, scan_data, width_inches, height_inches, dpi):
     print(dpi)
     m: moments = frxxDataFromFile('/Volumes/RadarData/frxx-dev/m.nc')
     fig, ax, mesh, cb = plotPPI(
-        m.DBZ,
-        title="DBZ",
-        units="DBZ",
+        m.RHOHV,
+        title="RHOHV",
+        units="RHOHV",
         rangesKM=m.rkm,
         azimuths=m.az,
         elevation=m.fixedAngle,
         width=width_inches, 
         aspectRatioWH=width_inches/height_inches,
         dpi = dpi,
-        clims=(0, 75, 5),
+        clims=(.2, 1.05, 5),
     )
     panel_state.fig      = fig
     panel_state.ax       = ax
