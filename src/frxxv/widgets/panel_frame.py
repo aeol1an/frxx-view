@@ -11,7 +11,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, QTimer, QEvent
 from PySide6.QtWidgets import QFrame, QVBoxLayout
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
-from matplotlib.backends.backend_qtagg import NavigationToolbar2QT
+from matplotlib.backends.backend_qt import NavigationToolbar2QT
 
 from typing import Callable, Optional
 
@@ -28,13 +28,15 @@ from frxxv.config import (
     RESIZE_DEBOUNCE_MS,
 )
 from frxxv.state import AppState
+from frxxv.controllers.panel_lims_controller import PanelLimsController
 
 
 class PanelFrame(QFrame):
-    def __init__(self, index: int, state: AppState, parent=None):
+    def __init__(self, index: int, state: AppState, lims: PanelLimsController, parent=None):
         super().__init__(parent)
         self.index = index
         self.state = state
+        self.lims = lims
         self.canvas: FigureCanvasQTAgg | None = None
 
         # Object name for scoped stylesheet selector
@@ -64,9 +66,6 @@ class PanelFrame(QFrame):
         self._resize_timer.setInterval(RESIZE_DEBOUNCE_MS)
         self._resize_timer.timeout.connect(self._on_debounced_resize)
 
-
-        self._xsyncing = False
-        self._ysyncing = False
 
         # React to selection changes
         self.state.selection_changed.connect(self._update_border)
@@ -180,6 +179,8 @@ class PanelFrame(QFrame):
         toolbar.hide()
         toolbar.pan()
 
+        self.lims.register_axes(self.canvas, ps.ax)
+
         # ps.ax.callbacks.connect('xlim_changed', self.on_xlim_change)
         # ps.ax.callbacks.connect('ylim_changed', self.on_ylim_change)
 
@@ -189,8 +190,10 @@ class PanelFrame(QFrame):
         super().resizeEvent(event)
         self._resize_timer.start()
 
-    def _on_debounced_resize(self):
+    def _on_resize(self):
         if self.canvas is None:
+            return
+        if self.index != 0:
             return
         ps = self.state.panels[self.index]
         if ps.ax is None or ps.xlim is None or ps.ylim is None:
@@ -210,12 +213,12 @@ class PanelFrame(QFrame):
         #ps.xlim = (x_center-w/2, x_center+w/2)
 
 
-        # ps.ax.set_xlim(ps.xlim)
-        # ps.ax.set_ylim(ps.ylim)
+        ps.ax.set_xlim(ps.xlim)
+        ps.ax.set_ylim(ps.ylim)
 
         
-        # if ps.updater is not None :
-        #     ps.updater(ps.fig, ps.ax, ps.plot, ps.cb, self.width_inches, self.height_inches)
+        if ps.updater is not None :
+            ps.updater(ps.fig, ps.ax, ps.plot, ps.cb, self.width_inches, self.height_inches)
 
         self.canvas.draw_idle()
 

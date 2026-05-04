@@ -17,7 +17,6 @@ def ppi_factory(panel_state, scan_data, width_inches, height_inches, dpi):
     A PlotFactory compatible with PanelGrid.set_plot_factory().
     Uses create_test_figure for demonstration.
     """
-    print(dpi)
     m: moments = frxxDataFromFile('/Volumes/RadarData/frxx-dev/m.nc')
     fig, ax, mesh, cb = plotPPI(
         m.RHOHV,

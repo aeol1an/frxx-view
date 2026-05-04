@@ -13,6 +13,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 
 from frxxv.config import LAYOUTS, NUM_PANELS, MIN_PANEL_HEIGHT_INCHES, MIN_PANEL_WIDTH_INCHES
 from frxxv.state import AppState, PanelState
+from frxxv.controllers.panel_lims_controller import PanelLimsController
 from frxxv.widgets.panel_frame import PanelFrame
 
 # ── Factory type aliases ────────────────────────────────────────────
@@ -31,6 +32,7 @@ class PanelGrid(QWidget):
     def __init__(self, state: AppState, parent=None):
         super().__init__(parent)
         self.state = state
+        self.lims = PanelLimsController()
 
         # Grid
         self._grid = QGridLayout(self)
@@ -39,7 +41,7 @@ class PanelGrid(QWidget):
 
         # Create all panels once — they persist across layout changes
         self.panels: list[PanelFrame] = [
-            PanelFrame(i, self.state, self) for i in range(NUM_PANELS)
+            PanelFrame(i, self.state, self.lims, self) for i in range(NUM_PANELS)
         ]
 
         # Wire state signals
