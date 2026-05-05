@@ -185,6 +185,8 @@ class PanelFrame(QFrame):
         self.lims.register_axes(self.canvas, ps.ax)
         ps.ax.callbacks.connect('xlim_changed', self.on_xlim_change)
         ps.ax.callbacks.connect('ylim_changed', self.on_ylim_change)
+        ps.ax.set_aspect("equal")
+
 
     # ── Resize → relim (no replot) ──────────────────────────────────
 
