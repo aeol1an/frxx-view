@@ -24,6 +24,8 @@ class PanelState:
     cb: Any   = None          # Colorbar (or None)
     xlim: Optional[Tuple[float, float]] = None
     ylim: Optional[Tuple[float, float]] = None
+    w: int | None = None
+    h: int | None = None
     updater: Optional[Callable] = None
 
 

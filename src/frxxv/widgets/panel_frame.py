@@ -64,7 +64,7 @@ class PanelFrame(QFrame):
         self._resize_timer = QTimer(self)
         self._resize_timer.setSingleShot(True)
         self._resize_timer.setInterval(RESIZE_DEBOUNCE_MS)
-        self._resize_timer.timeout.connect(self._on_debounced_resize)
+        self._resize_timer.timeout.connect(self._on_resize)
 
 
         # React to selection changes
@@ -173,6 +173,9 @@ class PanelFrame(QFrame):
         if self.canvas is None:
             return
 
+        ps.w = self.canvas.width()
+        ps.h = self.canvas.height()
+
         self.canvas.mpl_connect('scroll_event', self._handle_zoom)
 
         toolbar = NavigationToolbar2QT(self.canvas, self)
@@ -180,53 +183,59 @@ class PanelFrame(QFrame):
         toolbar.pan()
 
         self.lims.register_axes(self.canvas, ps.ax)
-
-        # ps.ax.callbacks.connect('xlim_changed', self.on_xlim_change)
-        # ps.ax.callbacks.connect('ylim_changed', self.on_ylim_change)
+        ps.ax.callbacks.connect('xlim_changed', self.on_xlim_change)
+        ps.ax.callbacks.connect('ylim_changed', self.on_ylim_change)
 
     # ── Resize → relim (no replot) ──────────────────────────────────
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        if self.index != 0:
+            return
         self._resize_timer.start()
 
     def _on_resize(self):
         if self.canvas is None:
             return
-        if self.index != 0:
-            return
         ps = self.state.panels[self.index]
-        if ps.ax is None or ps.xlim is None or ps.ylim is None:
+        if ps.ax is None or ps.xlim is None or ps.ylim is None or ps.w is None or ps.h is None:
             return
 
-        w = self.canvas.width()
-        h = self.canvas.height()
-        if w <= 0 or h <= 0:
+        new_w = self.canvas.width()
+        new_h = self.canvas.height()
+        if new_w <= 0 or new_h <= 0:
             return
         
-        #TODO: do math to preserve center, unifying lim changes
-        x_center = ps.xlim[0] + (ps.xlim[1] - ps.xlim[0])/2
-        y_center = ps.ylim[0] + (ps.ylim[1] - ps.ylim[0])/2
+        old_w = ps.w
+        old_h = ps.h
 
-        #x_extent_scale = x_
+        old_dx = (ps.xlim[1] - ps.xlim[0])
+        old_dy = (ps.ylim[1] - ps.ylim[0])
 
-        #ps.xlim = (x_center-w/2, x_center+w/2)
+        new_dx = old_dx * (new_w/old_w)
+        new_dy = old_dy * (new_h/old_h)
 
+        x_center = ps.xlim[0] + old_dx/2
+        y_center = ps.ylim[0] + old_dy/2
 
-        ps.ax.set_xlim(ps.xlim)
-        ps.ax.set_ylim(ps.ylim)
+        new_xlim = (x_center - new_dx/2, x_center + new_dx/2)
+        new_ylim = (y_center - new_dy/2, y_center + new_dy/2)
 
-        
-        if ps.updater is not None :
-            ps.updater(ps.fig, ps.ax, ps.plot, ps.cb, self.width_inches, self.height_inches)
+        ps.ax.set_xlim(new_xlim)
+        ps.ax.set_ylim(new_ylim)
+
+        ps.w = new_w
+        ps.h = new_h
+        ps.xlim = new_xlim
+        ps.ylim = new_ylim
 
         self.canvas.draw_idle()
 
     def on_xlim_change(self, ax):
-        self._resize_timer.start()
+        self.state.panels[self.index].xlim = ax.get_xlim()
 
     def on_ylim_change(self, ax):
-        self._resize_timer.start()
+        self.state.panels[self.index].ylim = ax.get_ylim()
 
     # ── Geometry helpers (inches) ───────────────────────────────────
 
