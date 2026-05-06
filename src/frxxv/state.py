@@ -18,6 +18,8 @@ from frxxv.config import DEFAULT_LAYOUT, NUM_PANELS
 class PanelState:
     """Per-panel mutable state.  Always NUM_PANELS of these in AppState.panels."""
     field_name: str = ""
+    type: str       = ""
+    data: Any = None
     fig: Any  = None          # matplotlib Figure
     ax: Any   = None          # matplotlib Axes
     plot: Any = None          # primary artist (QuadMesh, etc.)

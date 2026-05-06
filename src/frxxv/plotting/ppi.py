@@ -12,24 +12,29 @@ from frxx.core import moments
 from frxx.io.caseManager import frxxDataFromFile
 from frxx.viz.plotMoments import plotPPI, updatePPIAxesText
 
-def ppi_factory(panel_state, scan_data, width_inches, height_inches, dpi):
+import frxx.viz.defaultPlotParameters as dpp
+
+def ppi_factory(panel_state, width_inches, height_inches, dpi):
     """
     A PlotFactory compatible with PanelGrid.set_plot_factory().
     Uses create_test_figure for demonstration.
     """
+    field = panel_state.field
     m: moments = frxxDataFromFile('/Volumes/RadarData/frxx-dev/m.nc')
     fig, ax, mesh, cb = plotPPI(
-        m.RHOHV,
-        title="RHOHV",
-        units="RHOHV",
-        rangesKM=m.rkm,
-        azimuths=m.az,
+        scan_data[field].data,
+        title=field,
+        units=dpp.moments[field]["units"],
+        rangesKM=scan_data["range"].data/1000.,
+        azimuths=scan_data["az"],
         elevation=m.fixedAngle,
         width=width_inches, 
         aspectRatioWH=width_inches/height_inches,
         dpi = dpi,
-        clims=(.2, 1.05, 5),
+        clims=dpp.moments[field]["ranges"],
+        cmap=dpp.moments[field]["cmap"]
     )
+    panel_state.type     = "ppi"
     panel_state.fig      = fig
     panel_state.ax       = ax
     panel_state.plot     = mesh

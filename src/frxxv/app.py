@@ -44,6 +44,8 @@ def main():
         from frxxv.plotting.ppi import ppi_factory
         from frxxv.config import LAYOUTS
 
+        fields = ["DBZ", "VEL", "ZDR", "RHOHV"]
+
         panels = window.panel_grid.panels
         visible = len(LAYOUTS[window.state.layout])
         for i in range(visible):

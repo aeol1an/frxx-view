@@ -29,8 +29,8 @@ GLOBAL_KEYS: Dict[int, str] = {
 
 PANEL_KEYS: Dict[int, str] = {
     # Extend per your data fields, e.g.:
-    # Qt.Key.Key_R: "reflectivity",
-    # Qt.Key.Key_V: "velocity",
+    Qt.Key.Key_Z: "DBZ",
+    Qt.Key.Key_V: "VEL",
 }
 
 
