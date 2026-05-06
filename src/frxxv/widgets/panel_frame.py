@@ -27,7 +27,7 @@ from frxxv.config import (
     MIN_PANEL_HEIGHT_INCHES,
     RESIZE_DEBOUNCE_MS,
 )
-from frxxv.state import AppState
+from frxxv.state import PanelState, AppState
 from frxxv.controllers.panel_lims_controller import PanelLimsController
 
 
@@ -35,7 +35,8 @@ class PanelFrame(QFrame):
     def __init__(self, index: int, state: AppState, lims: PanelLimsController, parent=None):
         super().__init__(parent)
         self.index = index
-        self.state = state
+        self.appstate = state
+        self.state = state.panels[index]
         self.lims = lims
         self.canvas: FigureCanvasQTAgg | None = None
 
@@ -68,13 +69,13 @@ class PanelFrame(QFrame):
 
 
         # React to selection changes
-        self.state.selection_changed.connect(self._update_border)
+        self.appstate.selection_changed.connect(self._update_border)
         self._update_border()
 
     # ── Border styling ──────────────────────────────────────────────
 
     def _update_border(self, _selected=None):
-        is_sel = (self.state.selected == self.index)
+        is_sel = (self.appstate.selected == self.index)
         color = BORDER_COLOR_SELECTED if is_sel else BORDER_COLOR_UNSELECTED
         self.setStyleSheet(
             f"QFrame#{self._obj_name} {{"
@@ -122,7 +123,7 @@ class PanelFrame(QFrame):
     # Right click selection - qt
     def _handle_mouse_press(self, event):
         if event.button() == Qt.MouseButton.RightButton:
-            self.state.selected = self.index
+            self.appstate.selected = self.index
         return False
     
     # Zoom - mpl
@@ -160,11 +161,10 @@ class PanelFrame(QFrame):
     def replot(self):
         if self._plot_factory is None:
             return
-        ps = self.state.panels[self.index]
+        ps = self.state
         dpi = self.display_dpi
 
-        self._plot_factory(ps, self.state.scan_data,
-                            self.width_inches, self.height_inches, dpi)
+        self._plot_factory(ps, self.appstate, self.width_inches, self.height_inches, dpi)
         
         if ps.fig is not None:
             canvas = FigureCanvasQTAgg(ps.fig)
@@ -199,7 +199,7 @@ class PanelFrame(QFrame):
     def _on_resize(self):
         if self.canvas is None:
             return
-        ps = self.state.panels[self.index]
+        ps = self.state
         if ps.ax is None or ps.xlim is None or ps.ylim is None or ps.w is None or ps.h is None:
             return
 
@@ -234,10 +234,10 @@ class PanelFrame(QFrame):
         self.canvas.draw_idle()
 
     def on_xlim_change(self, ax):
-        self.state.panels[self.index].xlim = ax.get_xlim()
+        self.state.xlim = ax.get_xlim()
 
     def on_ylim_change(self, ax):
-        self.state.panels[self.index].ylim = ax.get_ylim()
+        self.state.ylim = ax.get_ylim()
 
     # ── Geometry helpers (inches) ───────────────────────────────────
 

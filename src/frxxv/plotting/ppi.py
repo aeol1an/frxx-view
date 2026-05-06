@@ -14,27 +14,29 @@ from frxx.viz.plotMoments import plotPPI, updatePPIAxesText
 
 import frxx.viz.defaultPlotParameters as dpp
 
-def ppi_factory(panel_state, width_inches, height_inches, dpi):
+from frxxv.ingest.frxxv_ingestible import FrxxvIngestible
+
+def ppi_factory(panel_state, app_state, width_inches, height_inches, dpi):
     """
     A PlotFactory compatible with PanelGrid.set_plot_factory().
     Uses create_test_figure for demonstration.
     """
-    field = panel_state.field
-    m: moments = frxxDataFromFile('/Volumes/RadarData/frxx-dev/m.nc')
+    field = panel_state.field_name
+    data: FrxxvIngestible = app_state.scan_data
+
     fig, ax, mesh, cb = plotPPI(
-        scan_data[field].data,
+        data[field],
         title=field,
         units=dpp.moments[field]["units"],
-        rangesKM=scan_data["range"].data/1000.,
-        azimuths=scan_data["az"],
-        elevation=m.fixedAngle,
+        rangesKM=data.rkm,
+        azimuths=data.az,
+        elevation=data.fixedAngle,
         width=width_inches, 
         aspectRatioWH=width_inches/height_inches,
         dpi = dpi,
         clims=dpp.moments[field]["ranges"],
         cmap=dpp.moments[field]["cmap"]
     )
-    panel_state.type     = "ppi"
     panel_state.fig      = fig
     panel_state.ax       = ax
     panel_state.plot     = mesh

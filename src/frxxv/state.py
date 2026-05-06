@@ -12,23 +12,27 @@ from typing import Any, Dict, List, Optional, Tuple, Callable
 from PySide6.QtCore import QObject, Signal
 
 from frxxv.config import DEFAULT_LAYOUT, NUM_PANELS
-
+from frxxv.ingest.frxxv_ingestible import FrxxvIngestible
 
 @dataclass
 class PanelState:
     """Per-panel mutable state.  Always NUM_PANELS of these in AppState.panels."""
+    #Set prior to factory creation
     field_name: str = ""
-    type: str       = ""
-    data: Any = None
+
+    #Set by the factory
     fig: Any  = None          # matplotlib Figure
     ax: Any   = None          # matplotlib Axes
     plot: Any = None          # primary artist (QuadMesh, etc.)
     cb: Any   = None          # Colorbar (or None)
     xlim: Optional[Tuple[float, float]] = None
     ylim: Optional[Tuple[float, float]] = None
+    updater: Optional[Callable] = None
+
+    #set after factory to handle resizes
     w: int | None = None
     h: int | None = None
-    updater: Optional[Callable] = None
+    
 
 
 class AppState(QObject):
@@ -44,8 +48,9 @@ class AppState(QObject):
         self._selected: Optional[int] = None
         self.panels: List[PanelState] = [PanelState() for _ in range(NUM_PANELS)]
 
+        type: str       = ""
         # Populated by the user's file-loader callback
-        self.scan_data: Dict[str, Any] = {}
+        self.scan_data: Optional[FrxxvIngestible] = None
         self.scan_metadata: Dict[str, str] = {
             "radar_name": "",
             "scan_time": "",

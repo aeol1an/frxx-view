@@ -4,7 +4,7 @@ import pyart
 
 class PyartData(FrxxvIngestible):
     def __init__(self, filename, sweep=0):
-        self.radar = pyart.io.read(filename)
+        self.radar: pyart.core.Radar = pyart.io.read(filename)
         self.nsweeps = self.radar.nsweeps
         self.sweep = sweep
         self._validate_sweep()

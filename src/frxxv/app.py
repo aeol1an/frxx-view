@@ -15,6 +15,8 @@ from PySide6.QtGui import QIcon
 
 from frxxv.main_window import MainWindow
 
+from frxxv.ingest.pyart import PyartData
+
 def main():
 
     icon_path = str(files("frxxv")/ '..' / '..' / "assets" / "frxx_icon.png")
@@ -48,7 +50,11 @@ def main():
 
         panels = window.panel_grid.panels
         visible = len(LAYOUTS[window.state.layout])
+        data = PyartData("/Volumes/RadarData/frxx-dev/m.nc", sweep=0)
+        window.state.scan_data = data
+        window.state.type = "ppi"
         for i in range(visible):
+            panels[i].state.field_name = fields[i]
             panels[i].set_plot_factory(ppi_factory)
             panels[i].replot()
 
