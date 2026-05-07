@@ -6,16 +6,16 @@ Application entry point.
     main(demo=True)     # test figures
 """
 import sys
-import platform
 from importlib.resources import files
 import setproctitle
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
 
-from frxxv.main_window import MainWindow
-
+from frxxv.windows.panel_window import PanelWindow
 from frxxv.ingest.pyart import PyartData
+
+import argparse
 
 def main():
 
@@ -40,7 +40,7 @@ def main():
 
     app.setWindowIcon(QIcon(icon_path))
 
-    window = MainWindow()
+    window = PanelWindow("Frxx View")
 
     if demo:
         from frxxv.plotting.ppi import ppi_factory
@@ -60,3 +60,6 @@ def main():
 
     window.show()
     sys.exit(app.exec())
+
+def open(app):
+    print("hi")

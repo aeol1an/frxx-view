@@ -16,11 +16,10 @@ from frxxv.controllers.key_router import (
 )
 from frxxv.controllers.file_manager import FileManager
 
-
-class MainWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Frxx View")
+class PanelWindow(QMainWindow):
+    def __init__(self, title: str, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(title)
 
         # ── State ───────────────────────────────────────────────────
         self.state = AppState(self)
