@@ -8,12 +8,15 @@ Application entry point.
 import sys
 from importlib.resources import files
 import setproctitle
+from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
 
 from frxxv.windows.panel_window import PanelWindow
 from frxxv.ingest.pyart import PyartData
+
+from frxx.utils.pathUtils import getPlatform
 
 import argparse
 
@@ -28,15 +31,34 @@ def main():
 
     setproctitle.setproctitle("Frxx View")
 
-    try:
-        from AppKit import NSApplication, NSImage  # type: ignore
-        ns_app = NSApplication.sharedApplication()
-        ns_app.setApplicationIconImage_(NSImage.alloc().initWithContentsOfFile_(icon_path))
-    except ImportError:
-        pass
+    platform = getPlatform()
 
+    if platform == "macos":
+        try:
+            from AppKit import NSApplication, NSImage  # type: ignore
+            ns_app = NSApplication.sharedApplication()
+            ns_app.setApplicationIconImage_(NSImage.alloc().initWithContentsOfFile_(icon_path))
+        except ImportError:
+            pass
+    elif platform == "linux":
+        apps_dir = Path.home() / ".local/share/applications"
+        apps_dir.mkdir(parents=True, exist_ok=True)
+        desktop_file = apps_dir/"frxx-view.desktop"
+        desktop_file.write_text(
+            f"[Desktop Entry]\n"
+            f"Name=Frxx View\n"
+            f"Exec=true\n"
+            f"Icon={icon_path}\n"
+            f"Type=Application\n"
+            f"NoDisplay=true"
+            f"Terminal=false\n"
+        )
+    app.setDesktopFileName('frxx-view')
+
+        
     app.setApplicationName("Frxx View")
     app.setApplicationDisplayName("Frxx View")
+
 
     app.setWindowIcon(QIcon(icon_path))
 
@@ -50,7 +72,8 @@ def main():
 
         panels = window.panel_grid.panels
         visible = len(LAYOUTS[window.state.layout])
-        data = PyartData("/Volumes/RadarData/frxx-dev/m.nc", sweep=0)
+        data = PyartData("/run/media/aeolian/RadarData/frxx-dev/m.nc", sweep=0)
+        #data = PyartData("/Volumes/RadarData/frxx-dev/m.nc", sweep=0)
         window.state.scan_data = data
         window.state.type = "ppi"
         for i in range(visible):

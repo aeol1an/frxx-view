@@ -12,6 +12,7 @@ from PySide6.QtCore import Qt, QTimer, QEvent
 from PySide6.QtWidgets import QFrame, QVBoxLayout
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.backends.backend_qt import NavigationToolbar2QT
+from matplotlib.backend_tools import Cursors
 
 from typing import Callable, Optional
 
@@ -29,7 +30,6 @@ from frxxv.config import (
 )
 from frxxv.state import PanelState, AppState
 from frxxv.controllers.panel_lims_controller import PanelLimsController
-
 
 class PanelFrame(QFrame):
     def __init__(self, index: int, state: AppState, lims: PanelLimsController, parent=None):
@@ -109,6 +109,12 @@ class PanelFrame(QFrame):
     def eventFilter(self, obj, event):
         """Catch right-clicks on the hosted canvas for selection."""
         if obj is self.canvas:
+            # if event.type() == QEvent.Type.CursorChange:
+            #     if not getattr(self, "_forcing_arrow_cursor", False):
+            #         self._forcing_arrow_cursor = True
+            #         self.canvas.setCursor(Qt.CursorShape.ArrowCursor)
+            #         self._forcing_arrow_cursor = False
+            #     return True
             handler = {
                 QEvent.Type.MouseButtonPress: self._handle_mouse_press,
                 # QEvent.Type.Wheel: self._handle_wheel,
@@ -178,7 +184,12 @@ class PanelFrame(QFrame):
 
         self.canvas.mpl_connect('scroll_event', self._handle_zoom)
 
-        toolbar = NavigationToolbar2QT(self.canvas, self)
+        class NoPanCursorToolbar(NavigationToolbar2QT):
+            def _update_cursor(self, event):
+                if self._last_cursor != Cursors.POINTER:
+                    self.canvas.set_cursor(Cursors.POINTER)
+                    self._last_cursor = Cursors.POINTER
+        toolbar = NoPanCursorToolbar(self.canvas, self)
         toolbar.hide()
         toolbar.pan()
 

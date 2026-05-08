@@ -41,6 +41,7 @@ class AppState(QObject):
     selection_changed   = Signal(object)  # Optional[int]
     scan_changed        = Signal()        # new scan data loaded
     panel_field_changed = Signal(int)     # index of panel whose field changed
+    type: str       = ""
 
     def __init__(self, parent: QObject | None = None):
         super().__init__(parent)
@@ -48,7 +49,6 @@ class AppState(QObject):
         self._selected: Optional[int] = None
         self.panels: List[PanelState] = [PanelState() for _ in range(NUM_PANELS)]
 
-        type: str       = ""
         # Populated by the user's file-loader callback
         self.scan_data: Optional[FrxxvIngestible] = None
         self.scan_metadata: Dict[str, str] = {
