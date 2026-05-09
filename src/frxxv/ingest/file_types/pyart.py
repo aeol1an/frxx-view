@@ -1,8 +1,8 @@
-from .frxxv_ingestible import FrxxvIngestible
+from ..file_ingestible import FileIngestible
 import pyart
 
 
-class PyartData(FrxxvIngestible):
+class PyartFile(FileIngestible):
     def __init__(self, filename, sweep=0):
         self.radar: pyart.core.Radar = pyart.io.read(filename)
         self.nsweeps = self.radar.nsweeps

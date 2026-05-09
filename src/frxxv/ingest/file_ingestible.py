@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from numpy.typing import NDArray
 
-class FrxxvIngestible(ABC):
+class FileIngestible(ABC):
     sweep: int = 0
     nsweeps: int = 1
 

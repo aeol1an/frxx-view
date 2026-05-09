@@ -14,7 +14,7 @@ from frxx.viz.plotMoments import plotPPI, updatePPIAxesText
 
 import frxx.viz.defaultPlotParameters as dpp
 
-from frxxv.ingest.frxxv_ingestible import FrxxvIngestible
+from frxxv.ingest.file_ingestible import FrxxvIngestible
 
 def ppi_factory(panel_state, app_state, width_inches, height_inches, dpi):
     """

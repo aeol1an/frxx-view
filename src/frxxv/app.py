@@ -14,7 +14,7 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
 
 from frxxv.windows.panel_window import PanelWindow
-from frxxv.ingest.pyart import PyartData
+from frxxv.ingest.file_types.pyart import PyartFile
 
 from frxx.utils.pathUtils import getPlatform
 

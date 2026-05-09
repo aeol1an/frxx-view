@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple, Callable
 from PySide6.QtCore import QObject, Signal
 
 from frxxv.config import DEFAULT_LAYOUT, NUM_PANELS
-from frxxv.ingest.frxxv_ingestible import FrxxvIngestible
+from frxxv.ingest.file_ingestible import FrxxvIngestible
 
 @dataclass
 class PanelState:
