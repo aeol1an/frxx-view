@@ -72,8 +72,8 @@ def main():
 
         panels = window.panel_grid.panels
         visible = len(LAYOUTS[window.state.layout])
-        data = PyartData("/run/media/aeolian/RadarData/frxx-dev/m.nc", sweep=0)
-        #data = PyartData("/Volumes/RadarData/frxx-dev/m.nc", sweep=0)
+        #data = PyartFile("/run/media/aeolian/RadarData/frxx-dev/m.nc", sweep=0)
+        data = PyartFile("/Volumes/RadarData2/frxx-dev/m.nc", sweep=0)
         window.state.scan_data = data
         window.state.type = "ppi"
         for i in range(visible):

@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple, Callable
 from PySide6.QtCore import QObject, Signal
 
 from frxxv.config import DEFAULT_LAYOUT, NUM_PANELS
-from frxxv.ingest.file_ingestible import FrxxvIngestible
+from frxxv.ingest.file_ingestible import FileIngestible
 
 @dataclass
 class PanelState:
@@ -50,7 +50,7 @@ class AppState(QObject):
         self.panels: List[PanelState] = [PanelState() for _ in range(NUM_PANELS)]
 
         # Populated by the user's file-loader callback
-        self.scan_data: Optional[FrxxvIngestible] = None
+        self.scan_data: Optional[FileIngestible] = None
         self.scan_metadata: Dict[str, str] = {
             "radar_name": "",
             "scan_time": "",

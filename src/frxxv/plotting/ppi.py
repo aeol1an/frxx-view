@@ -14,7 +14,7 @@ from frxx.viz.plotMoments import plotPPI, updatePPIAxesText
 
 import frxx.viz.defaultPlotParameters as dpp
 
-from frxxv.ingest.file_ingestible import FrxxvIngestible
+from frxxv.ingest.file_ingestible import FileIngestible
 
 def ppi_factory(panel_state, app_state, width_inches, height_inches, dpi):
     """
@@ -22,7 +22,7 @@ def ppi_factory(panel_state, app_state, width_inches, height_inches, dpi):
     Uses create_test_figure for demonstration.
     """
     field = panel_state.field_name
-    data: FrxxvIngestible = app_state.scan_data
+    data: FileIngestible = app_state.scan_data
 
     fig, ax, mesh, cb = plotPPI(
         data[field],
