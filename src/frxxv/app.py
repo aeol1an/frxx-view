@@ -22,7 +22,7 @@ import argparse
 
 def main():
 
-    icon_path = str(files("frxxv")/ '..' / '..' / "assets" / "frxx_icon.png")
+    icon_path = str(Path(str(files("frxxv")/ '..' / '..' / "assets" / "frxx_icon.png")).resolve())
 
     sys.argv[0] = "Frxx View"
     demo = "--demo" in sys.argv
@@ -32,7 +32,6 @@ def main():
     setproctitle.setproctitle("Frxx View")
 
     platform = getPlatform()
-
     if platform == "macos":
         try:
             from AppKit import NSApplication, NSImage  # type: ignore
@@ -53,13 +52,11 @@ def main():
             f"NoDisplay=true"
             f"Terminal=false\n"
         )
-    app.setDesktopFileName('frxx-view')
+        app.setDesktopFileName('frxx-view')
 
         
     app.setApplicationName("Frxx View")
     app.setApplicationDisplayName("Frxx View")
-
-
     app.setWindowIcon(QIcon(icon_path))
 
     window = PanelWindow("Frxx View")
