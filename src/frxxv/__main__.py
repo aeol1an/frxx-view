@@ -1,7 +1,4 @@
-"""
-python -m frxxv          → launches empty
-python -m frxxv --demo   → launches with test figures
-"""
+"""Run Frxx View using the current directory by default."""
 from frxxv.app import main
 
 main()

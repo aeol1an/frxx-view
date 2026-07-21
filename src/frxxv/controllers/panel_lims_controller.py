@@ -10,6 +10,7 @@ class PanelLimsController(QObject):
         super().__init__()
 
         self._updating = False
+        self._registrations = {}
         self._pending_sender = None
         self._pending_xlim = None
         self._pending_ylim = None
@@ -52,20 +53,48 @@ class PanelLimsController(QObject):
         finally:
             self._updating = False
 
-    def register_axes(self, canvas, ax):
+    def register_axes(self, receiver, canvas, ax):
+        self.unregister_axes(receiver)
         sender = canvas
 
-        ax.callbacks.connect(
+        xlim_callback = ax.callbacks.connect(
             "xlim_changed",
             lambda ax: self.request_update_from_axes(sender, ax)
         )
 
-        ax.callbacks.connect(
+        ylim_callback = ax.callbacks.connect(
             "ylim_changed",
             lambda ax: self.request_update_from_axes(sender, ax)
         )
 
-        self.limits_changed.connect(
+        limits_callback = (
             lambda changed_sender, xlim, ylim:
                 self.apply_to(sender, changed_sender, ax, canvas, xlim, ylim)
         )
+        self.limits_changed.connect(limits_callback)
+        self._registrations[receiver] = (
+            canvas,
+            ax,
+            xlim_callback,
+            ylim_callback,
+            limits_callback,
+        )
+
+    def unregister_axes(self, receiver):
+        registration = self._registrations.pop(receiver, None)
+        if registration is None:
+            return
+
+        canvas, ax, xlim_callback, ylim_callback, limits_callback = registration
+        ax.callbacks.disconnect(xlim_callback)
+        ax.callbacks.disconnect(ylim_callback)
+        try:
+            self.limits_changed.disconnect(limits_callback)
+        except (RuntimeError, TypeError):
+            pass
+
+        if self._pending_sender is canvas:
+            self._timer.stop()
+            self._pending_sender = None
+            self._pending_xlim = None
+            self._pending_ylim = None

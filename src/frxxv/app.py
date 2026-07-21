@@ -1,10 +1,4 @@
-"""
-Application entry point.
-
-    from frxxv.app import main
-    main()              # empty panels
-    main(demo=True)     # test figures
-"""
+"""Application entry point."""
 import sys
 from importlib.resources import files
 import setproctitle
@@ -13,21 +7,26 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
 
-from frxxv.windows.panel_window import PanelWindow
+from frxxv.args import parse_args
+from frxxv.config import LAYOUTS
+from frxxv.controllers.file_manager import FileManager
+from frxxv.ingest.case_types.directory import Directory
 from frxxv.ingest.file_types.pyart import PyartFile
+from frxxv.plotting.ppi import ppi_factory
+from frxxv.state import AppState
+from frxxv.windows.panel_window import PanelWindow
 
 from frxx.utils.pathUtils import getPlatform
 
-import argparse
 
-def main():
+def main(argv=None):
+    args = parse_args(argv)
+    starting_directory = args.directory.expanduser().resolve()
 
     icon_path = str(Path(str(files("frxxv")/ '..' / '..' / "assets" / "frxx_icon.png")).resolve())
 
     sys.argv[0] = "Frxx View"
-    demo = "--demo" in sys.argv
-
-    app = QApplication(sys.argv)
+    app = QApplication([sys.argv[0]])
 
     setproctitle.setproctitle("Frxx View")
 
@@ -59,27 +58,32 @@ def main():
     app.setApplicationDisplayName("Frxx View")
     app.setWindowIcon(QIcon(icon_path))
 
-    window = PanelWindow("Frxx View")
+    # These objects belong to the application so every future window can
+    # share the same case, file, sweep, and scan data.
+    state = AppState()
+    file_manager = FileManager(state, app)
 
-    if demo:
-        from frxxv.plotting.ppi import ppi_factory
-        from frxxv.config import LAYOUTS
+    if (starting_directory / "frxx_cases").is_dir():
+        print("not implemented, treating as directory")
+    case = Directory(starting_directory)
+    file_manager.set_loader(PyartFile)
 
-        fields = ["DBZ", "VEL", "ZDR", "RHOHV"]
 
-        panels = window.panel_grid.panels
-        visible = len(LAYOUTS[window.state.layout])
-        #data = PyartFile("/run/media/aeolian/RadarData/frxx-dev/m.nc", sweep=0)
-        data = PyartFile("/Volumes/RadarData2/frxx-dev/m.nc", sweep=0)
-        window.state.scan_data = data
-        window.state.type = "ppi"
-        for i in range(visible):
-            panels[i].state.field_name = fields[i]
-            panels[i].set_plot_factory(ppi_factory)
-            panels[i].replot()
+    window = PanelWindow(
+        "Frxx View",
+        state=state,
+        file_manager=file_manager,
+    )
+
+    fields = ["DBZ", "VEL", "ZDR", "RHOHV"]
+    visible = len(LAYOUTS[state.layout])
+    state.type = "ppi"
+    for i in range(visible):
+        panel = window.panel_grid.panels[i]
+        panel.state.field_name = fields[i]
+        panel.set_plot_factory(ppi_factory)
+
+    file_manager.set_case(case)
 
     window.show()
     sys.exit(app.exec())
-
-def open(app):
-    print("hi")

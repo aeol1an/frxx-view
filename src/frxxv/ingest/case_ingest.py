@@ -1,11 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import List
 from pathlib import Path
 
-from .file_ingestible import FileIngestible
 
 class CaseIngest(ABC):
-    files: List[FileIngestible] = []
+    files: list[Path] = []
     current: int = 0
 
     @abstractmethod
@@ -13,10 +11,10 @@ class CaseIngest(ABC):
         self.directory = directory
 
     @abstractmethod
-    def update():
+    def update(self):
         pass
 
-    def get_next(self) -> FileIngestible:
+    def get_next(self) -> Path:
         if len(self.files) == 0:
             raise IndexError("No files availible.")
         if self.current < 0 or self.current >= len(self.files):
@@ -28,7 +26,7 @@ class CaseIngest(ABC):
             self.current += 1
             return self.files[self.current]
         
-    def get_prev(self) -> FileIngestible:
+    def get_prev(self) -> Path:
         if len(self.files) == 0:
             raise IndexError("No files availible.")
         if self.current < 0 or self.current >= len(self.files):
@@ -40,7 +38,7 @@ class CaseIngest(ABC):
             self.current -= 1
             return self.files[self.current]
         
-    def get_first(self) -> FileIngestible:
+    def get_first(self) -> Path:
         if len(self.files) == 0:
             raise IndexError("No files availible.")
         if self.current < 0 or self.current >= len(self.files):
@@ -49,7 +47,7 @@ class CaseIngest(ABC):
         self.current = 0
         return self.files[self.current]
 
-    def get_last(self) -> FileIngestible:
+    def get_last(self) -> Path:
         if len(self.files) == 0:
             raise IndexError("No files availible.")
         if self.current < 0 or self.current >= len(self.files):

@@ -17,15 +17,18 @@ from frxxv.controllers.key_router import (
 from frxxv.controllers.file_manager import FileManager
 
 class PanelWindow(QMainWindow):
-    def __init__(self, title: str, parent=None):
+    def __init__(self, title: str, state=None, file_manager=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle(title)
 
         # ── State ───────────────────────────────────────────────────
-        self.state = AppState(self)
+        self.state = state if state is not None else AppState(self)
 
         # ── Controllers ─────────────────────────────────────────────
-        self.file_manager = FileManager(self.state, self)
+        self.file_manager = (
+            file_manager if file_manager is not None
+            else FileManager(self.state, self)
+        )
         self.key_router   = KeyRouter(self.state)
 
         # Wire file navigation into the key router

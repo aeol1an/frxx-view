@@ -39,6 +39,10 @@ class PanelFrame(QFrame):
         self.state = state.panels[index]
         self.lims = lims
         self.canvas: FigureCanvasQTAgg | None = None
+        self.toolbar: NavigationToolbar2QT | None = None
+        self._scroll_callback: int | None = None
+        self._axes = None
+        self._axes_callbacks: list[int] = []
 
         # Object name for scoped stylesheet selector
         self._obj_name = f"panel_{index}"
@@ -152,6 +156,24 @@ class PanelFrame(QFrame):
     def set_canvas(self, new_canvas: FigureCanvasQTAgg):
         """Replace the current canvas (full replot path)."""
         if self.canvas is not None:
+            self.lims.unregister_axes(self)
+
+            if self._axes is not None:
+                for callback in self._axes_callbacks:
+                    self._axes.callbacks.disconnect(callback)
+            self._axes = None
+            self._axes_callbacks = []
+
+            if self._scroll_callback is not None:
+                self.canvas.mpl_disconnect(self._scroll_callback)
+                self._scroll_callback = None
+
+            if self.toolbar is not None:
+                self.toolbar.close()
+                self.toolbar.setParent(None)
+                self.toolbar.deleteLater()
+                self.toolbar = None
+
             self.canvas.removeEventFilter(self)
             self._inner_layout.removeWidget(self.canvas)
             self.canvas.close()
@@ -182,20 +204,25 @@ class PanelFrame(QFrame):
         ps.w = self.canvas.width()
         ps.h = self.canvas.height()
 
-        self.canvas.mpl_connect('scroll_event', self._handle_zoom)
+        self._scroll_callback = self.canvas.mpl_connect(
+            'scroll_event', self._handle_zoom
+        )
 
         class NoPanCursorToolbar(NavigationToolbar2QT):
             def _update_cursor(self, event):
                 if self._last_cursor != Cursors.POINTER:
                     self.canvas.set_cursor(Cursors.POINTER)
                     self._last_cursor = Cursors.POINTER
-        toolbar = NoPanCursorToolbar(self.canvas, self)
-        toolbar.hide()
-        toolbar.pan()
+        self.toolbar = NoPanCursorToolbar(self.canvas, self)
+        self.toolbar.hide()
+        self.toolbar.pan()
 
-        self.lims.register_axes(self.canvas, ps.ax)
-        ps.ax.callbacks.connect('xlim_changed', self.on_xlim_change)
-        ps.ax.callbacks.connect('ylim_changed', self.on_ylim_change)
+        self.lims.register_axes(self, self.canvas, ps.ax)
+        self._axes = ps.ax
+        self._axes_callbacks = [
+            ps.ax.callbacks.connect('xlim_changed', self.on_xlim_change),
+            ps.ax.callbacks.connect('ylim_changed', self.on_ylim_change),
+        ]
 
     # ── Resize → relim (no replot) ──────────────────────────────────
 

@@ -109,12 +109,4 @@ class PanelGrid(QWidget):
 
         for i in range(visible):
             panel = self.panels[i]
-            ps = self.state.panels[i]
-            # Try fast path first
-            if self._update_factory is not None and ps.fig is not None:
-                if self._update_factory(ps, self.state.scan_data):
-                    if self.panels[i].canvas is not None:
-                        self.panels[i].canvas.draw_idle() #type: ignore
-                    continue
-            # Fall back to full replot
             panel.replot()
