@@ -5,6 +5,7 @@ from PySide6.QtCore import (
     QPauseAnimation,
     QPropertyAnimation,
     QSequentialAnimationGroup,
+    Signal,
     Qt,
     QTimer,
 )
@@ -26,9 +27,10 @@ from frxxv.widgets.command_shell import CommandShell
 from frxxv.controllers.key_router import (
     KeyRouter, ACTION_PREV_FILE, ACTION_NEXT_FILE,
 )
-from frxxv.controllers.file_manager import FileManager
 
 class DataWindow(QMainWindow):
+    shell_output = Signal(str, int)
+
     SHELL_ANIMATION_MS = 240
     SHELL_FADE_MS = 75
     SHELL_INSET_PX = 4
@@ -36,7 +38,7 @@ class DataWindow(QMainWindow):
     def __init__(
         self,
         title: str,
-        state=None,
+        state: AppState,
         file_manager=None,
         shell_allowed: bool = True,
         parent=None,
@@ -46,12 +48,12 @@ class DataWindow(QMainWindow):
         self.shell_allowed = shell_allowed
 
         # ── State ───────────────────────────────────────────────────
-        self.state = state if state is not None else AppState(self)
+        self.state = state
 
         # ── Controllers ─────────────────────────────────────────────
         self.file_manager = (
             file_manager if file_manager is not None
-            else FileManager(self.state, self)
+            else self.state.file_manager
         )
         self.key_router   = KeyRouter(self.state)
 
@@ -143,6 +145,7 @@ class DataWindow(QMainWindow):
 
             self.shell = CommandShell()
             self.shell.command_submitted.connect(self._run_command)
+            self.shell_output.connect(self.shell.write)
             shell_layout.addWidget(self.shell)
 
             self._shell_opacity = QGraphicsOpacityEffect(self.shell)
@@ -329,7 +332,8 @@ class DataWindow(QMainWindow):
 
         if self.shell is not None:
             self.shell.write(
-                f"Not an editor command: {command or '<empty>'}"
+                f"Not an editor command: {command or '<empty>'}",
+                self.shell.STDERR,
             )
             self.shell.begin_command()
 

@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QFrame, QVBoxLayout
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.backends.backend_qt import NavigationToolbar2QT
 from matplotlib.backend_tools import Cursors
+import numpy as np
 
 from typing import Callable, Optional
 
@@ -41,6 +42,7 @@ class PanelFrame(QFrame):
         self.canvas: FigureCanvasQTAgg | None = None
         self.toolbar: NavigationToolbar2QT | None = None
         self._scroll_callback: int | None = None
+        self._double_click_callback: int | None = None
         self._axes = None
         self._axes_callbacks: list[int] = []
 
@@ -151,6 +153,47 @@ class PanelFrame(QFrame):
         ax.set_ylim([ydata - (ydata - ylim[0]) * scale, ydata + (ylim[1] - ydata) * scale])
         self.canvas.draw_idle()
 
+    def _handle_double_click(self, event):
+        """Emit the nearest radar gate when this panel is double-clicked."""
+        if not event.dblclick:
+            return
+        if event.inaxes is not self.state.ax:
+            return
+        if event.xdata is None or event.ydata is None:
+            return
+
+        panel_state = self.state
+        if panel_state.grid is None or panel_state.data is None:
+            return
+        if self.appstate.scan_data is None:
+            return
+
+        xx, yy = panel_state.grid
+        distance_squared = (
+            (xx - event.xdata) ** 2
+            + (yy - event.ydata) ** 2
+        )
+        if not np.any(np.isfinite(distance_squared)):
+            return
+
+        flat_index = np.nanargmin(distance_squared)
+        i_theta, i_r = np.unravel_index(flat_index, xx.shape)
+        scan_data = self.appstate.scan_data
+
+        payload = {
+            "panel_number": self.index,
+            "event_x": float(event.xdata),
+            "event_y": float(event.ydata),
+            "i_theta": int(i_theta),
+            "i_r": int(i_r),
+            "theta_center": float(scan_data.az[i_theta]),
+            "r_center": float(scan_data.rkm[i_r]),
+            "x_center": float(xx[i_theta, i_r]),
+            "y_center": float(yy[i_theta, i_r]),
+            "value": panel_state.data[i_theta, i_r],
+        }
+        self.appstate.panel_double_clicked.emit(payload)
+
     # ── Canvas lifecycle ────────────────────────────────────────────
 
     def set_canvas(self, new_canvas: FigureCanvasQTAgg):
@@ -167,6 +210,10 @@ class PanelFrame(QFrame):
             if self._scroll_callback is not None:
                 self.canvas.mpl_disconnect(self._scroll_callback)
                 self._scroll_callback = None
+
+            if self._double_click_callback is not None:
+                self.canvas.mpl_disconnect(self._double_click_callback)
+                self._double_click_callback = None
 
             if self.toolbar is not None:
                 self.toolbar.close()
@@ -206,6 +253,9 @@ class PanelFrame(QFrame):
 
         self._scroll_callback = self.canvas.mpl_connect(
             'scroll_event', self._handle_zoom
+        )
+        self._double_click_callback = self.canvas.mpl_connect(
+            'button_press_event', self._handle_double_click
         )
 
         class NoPanCursorToolbar(NavigationToolbar2QT):

@@ -33,7 +33,10 @@ def ppi_factory(panel_state, app_state, width_inches, height_inches, dpi):
     )
     if data_field is None:
         attempted = ", ".join(product_config["priority"])
-        print(f"Product {field} unavailable; tried: {attempted}")
+        app_state.main_window.shell_output.emit(
+            f"Product {field} unavailable; tried: {attempted}",
+            1,
+        )
         return
 
     y_center = None
@@ -61,6 +64,7 @@ def ppi_factory(panel_state, app_state, width_inches, height_inches, dpi):
     panel_state.plot     = mesh
     panel_state.cb       = cb
     panel_state.grid     = grid
+    panel_state.data     = data[data_field]
     panel_state.xlim     = tuple(ax.get_xlim())
     panel_state.ylim     = tuple(ax.get_ylim())
     panel_state.updater  = updatePPIAxesText

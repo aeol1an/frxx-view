@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Signal
-from PySide6.QtGui import QFontDatabase
+from PySide6.QtGui import QColor, QFontDatabase, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import QFrame, QLineEdit, QPlainTextEdit, QVBoxLayout
 
 
@@ -10,6 +10,12 @@ class CommandShell(QFrame):
     """Display command output and collect Vim-style commands."""
 
     command_submitted = Signal(str)
+    STDOUT = 0
+    STDERR = 1
+    OUTPUT_COLORS = {
+        STDOUT: QColor("#F2F2F7"),
+        STDERR: QColor("#FFD60A"),
+    }
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -54,8 +60,20 @@ class CommandShell(QFrame):
         self.input.setCursorPosition(1)
         self.input.setFocus()
 
-    def write(self, text: str):
-        self.output.appendPlainText(text)
+    def write(self, text: str, stream: int = STDOUT):
+        """Append output using the color assigned to the given stream."""
+        cursor = self.output.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        if not self.output.document().isEmpty():
+            cursor.insertBlock()
+
+        text_format = QTextCharFormat()
+        text_format.setForeground(
+            self.OUTPUT_COLORS.get(stream, self.OUTPUT_COLORS[self.STDOUT])
+        )
+        cursor.insertText(str(text), text_format)
+        self.output.setTextCursor(cursor)
+        self.output.ensureCursorVisible()
 
     def _submit(self):
         command = self.input.text()

@@ -37,6 +37,7 @@ class FileManager(QObject):
     def set_case(self, case: CaseIngest, initial_index: int = 0):
         """Set the program's case and load the requested initial file."""
         self.case = case
+        self.state.case = case
         if case.files:
             if initial_index >= len(case.files):
                 raise IndexError(
