@@ -23,12 +23,25 @@ def ppi_factory(panel_state, app_state, width_inches, height_inches, dpi):
     field = panel_state.field_name
     data: FileIngestible = app_state.scan_data
     product_config = USER_CONFIG.user_config["products"][field]
+    data_field = next(
+        (
+            candidate
+            for candidate in product_config["priority"]
+            if data.fieldAvail(candidate)
+        ),
+        None,
+    )
+    if data_field is None:
+        attempted = ", ".join(product_config["priority"])
+        print(f"Product {field} unavailable; tried: {attempted}")
+        return
+
     y_center = None
     if panel_state.ylim is not None:
         y_center = (panel_state.ylim[0] + panel_state.ylim[1]) / 2
 
-    fig, ax, mesh, cb = plotPPI(
-        data[field],
+    fig, ax, mesh, cb, grid = plotPPI(
+        data[data_field],
         title=field,
         units=product_config["units"],
         rangesKM=data.rkm,
@@ -47,6 +60,7 @@ def ppi_factory(panel_state, app_state, width_inches, height_inches, dpi):
     panel_state.ax       = ax
     panel_state.plot     = mesh
     panel_state.cb       = cb
+    panel_state.grid     = grid
     panel_state.xlim     = tuple(ax.get_xlim())
     panel_state.ylim     = tuple(ax.get_ylim())
     panel_state.updater  = updatePPIAxesText

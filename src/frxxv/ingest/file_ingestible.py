@@ -11,6 +11,19 @@ class FileIngestible(ABC):
     @abstractmethod
     def get_field(self, name) -> NDArray:
         pass
+
+    @abstractmethod
+    def fieldAvail(self, name: str) -> bool:
+        pass
+
+    @abstractmethod
+    def constructTimeStr(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def instrumentName(self) -> str:
+        pass
     
     @property
     @abstractmethod

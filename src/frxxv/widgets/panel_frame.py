@@ -130,7 +130,7 @@ class PanelFrame(QFrame):
     
         return super().eventFilter(obj, event)
 
-    # Right click selection - qt
+    # Mouse focus and right-click selection - qt
     def _handle_mouse_press(self, event):
         if event.button() == Qt.MouseButton.RightButton:
             self.appstate.selected = self.index
@@ -211,7 +211,7 @@ class PanelFrame(QFrame):
         class NoPanCursorToolbar(NavigationToolbar2QT):
             def _update_cursor(self, event):
                 if self._last_cursor != Cursors.POINTER:
-                    self.canvas.set_cursor(Cursors.POINTER)
+                    self.canvas.set_cursor(Cursors.POINTER) #type: ignore
                     self._last_cursor = Cursors.POINTER
         self.toolbar = NoPanCursorToolbar(self.canvas, self)
         self.toolbar.hide()

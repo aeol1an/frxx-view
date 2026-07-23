@@ -34,12 +34,21 @@ class FileManager(QObject):
         """Register the lazy loader used when navigation changes files."""
         self._loader = loader
 
-    def set_case(self, case: CaseIngest):
-        """Set the program's case and load its first file, if available."""
+    def set_case(self, case: CaseIngest, initial_index: int = 0):
+        """Set the program's case and load the requested initial file."""
         self.case = case
         if case.files:
-            case.get_first()
+            if initial_index >= len(case.files):
+                raise IndexError(
+                    f"File index {initial_index} is out of bounds for "
+                    f"a case with {len(case.files)} files"
+                )
+            case.current = initial_index
             self._load_current()
+        elif initial_index != 0:
+            raise IndexError(
+                f"File index {initial_index} is out of bounds for an empty case"
+            )
 
     def navigate(self, delta: int):
         """Move through sweeps, crossing file boundaries as needed."""
@@ -56,12 +65,12 @@ class FileManager(QObject):
 
         if direction > 0 and data.nextSweepAvail():
             data.sweep += 1
-            self._update_sweep_metadata(data)
+            self._update_scan_metadata(data)
             self.state.scan_changed.emit()
             return
         if direction < 0 and data.prevSweepAvail():
             data.sweep -= 1
-            self._update_sweep_metadata(data)
+            self._update_scan_metadata(data)
             self.state.scan_changed.emit()
             return
 
@@ -80,13 +89,20 @@ class FileManager(QObject):
         if use_last_sweep:
             data.sweep = data.nsweeps - 1
         self.state.scan_data = data
-        self.state.scan_metadata = {
-            "radar_name": fp.name,
-            "scan_time": f"Sweep {data.sweep + 1} of {data.nsweeps}",
-        }
+        self._update_scan_metadata(data)
         self.state.scan_changed.emit()
 
-    def _update_sweep_metadata(self, data: FileIngestible):
-        self.state.scan_metadata["scan_time"] = (
-            f"Sweep {data.sweep + 1} of {data.nsweeps}"
+    def _update_scan_metadata(self, data: FileIngestible):
+        angle_name = {
+            "ppi": "EL",
+            "rhi": "AZ",
+        }.get(self.state.type.lower(), "")
+        target_angle = (
+            f"{angle_name}={float(data.fixedAngle):.1f}°"
+            if angle_name else ""
         )
+        self.state.scan_metadata = {
+            "instrument_name": data.instrumentName,
+            "scan_time": data.constructTimeStr(),
+            "target_angle": target_angle,
+        }

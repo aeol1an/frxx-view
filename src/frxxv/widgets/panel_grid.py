@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QWidget, QGridLayout, QApplication
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 
@@ -29,10 +30,19 @@ UpdateFactory = Callable[..., bool]
 
 
 class PanelGrid(QWidget):
-    def __init__(self, state: AppState, parent=None):
+    def __init__(
+        self,
+        state: AppState,
+        geometry_alignment_toggle: Callable[[], None] | None = None,
+        parent=None,
+    ):
         super().__init__(parent)
         self.state = state
         self.lims = PanelLimsController()
+        self._geometry_lock_depth = 0
+        self._geometry_constraints = None
+        self._geometry_alignment_toggle = geometry_alignment_toggle
+        self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
 
         # Grid
         self._grid = QGridLayout(self)
@@ -57,6 +67,47 @@ class PanelGrid(QWidget):
     def replot_panel(self, index: int):
         pf = self.panels[index]
         pf.replot()
+
+    def take_keyboard_focus(self):
+        """Take focus after the current child mouse event finishes."""
+        QTimer.singleShot(
+            0,
+            lambda: self.setFocus(Qt.FocusReason.MouseFocusReason),
+        )
+
+    def mousePressEvent(self, event):
+        self.setFocus(Qt.FocusReason.MouseFocusReason)
+        super().mousePressEvent(event)
+
+    def lock_geometry(self):
+        """Hold the grid at its current size during an internal UI change."""
+        if self._geometry_lock_depth == 0:
+            self._geometry_constraints = (
+                self.minimumSize(),
+                self.maximumSize(),
+            )
+            self.setFixedSize(self.size())
+            if self._geometry_alignment_toggle is not None:
+                self._geometry_alignment_toggle()
+        self._geometry_lock_depth += 1
+
+    def unlock_geometry(self):
+        """Restore the constraints in effect before the grid was locked."""
+        if self._geometry_lock_depth == 0:
+            return
+
+        self._geometry_lock_depth -= 1
+        if self._geometry_lock_depth != 0:
+            return
+
+        assert self._geometry_constraints is not None
+        minimum_size, maximum_size = self._geometry_constraints
+        self._geometry_constraints = None
+        self.setMinimumSize(minimum_size)
+        self.setMaximumSize(maximum_size)
+        if self._geometry_alignment_toggle is not None:
+            self._geometry_alignment_toggle()
+        self.updateGeometry()
 
     # ── Layout switching ────────────────────────────────────────────
 

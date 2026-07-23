@@ -7,12 +7,16 @@ Qt signals — they never talk to each other directly.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Callable
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Callable
+from numpy.typing import NDArray
 
 from PySide6.QtCore import QObject, Signal
 
 from frxxv.config import DEFAULT_LAYOUT, NUM_PANELS
 from frxxv.ingest.file_ingestible import FileIngestible
+
+if TYPE_CHECKING:
+    from frxxv.controllers.file_manager import FileManager
 
 @dataclass
 class PanelState:
@@ -25,6 +29,7 @@ class PanelState:
     ax: Any   = None          # matplotlib Axes
     plot: Any = None          # primary artist (QuadMesh, etc.)
     cb: Any   = None          # Colorbar (or None)
+    grid: Optional[Tuple[NDArray, NDArray]] = None
     xlim: Optional[Tuple[float, float]] = None
     ylim: Optional[Tuple[float, float]] = None
     updater: Optional[Callable] = None
@@ -49,11 +54,17 @@ class AppState(QObject):
         self._selected: Optional[int] = None
         self.panels: List[PanelState] = [PanelState() for _ in range(NUM_PANELS)]
 
+        # Initialized during application startup. Keeping the application-level
+        # manager here lets trusted built-in commands navigate and replace the
+        # active case using the same shared state they receive.
+        self.file_manager: Optional["FileManager"] = None
+
         # Populated by the user's file-loader callback
         self.scan_data: Optional[FileIngestible] = None
         self.scan_metadata: Dict[str, str] = {
-            "radar_name": "",
+            "instrument_name": "",
             "scan_time": "",
+            "target_angle": "",
         }
 
     # ── layout property ─────────────────────────────────────────────

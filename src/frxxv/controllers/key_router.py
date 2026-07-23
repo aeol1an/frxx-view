@@ -13,6 +13,7 @@ from typing import Callable, Dict
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeyEvent
 
+from frxxv.config import USER_CONFIG
 from frxxv.state import AppState
 
 # ── Action name constants ───────────────────────────────────────────
@@ -27,11 +28,30 @@ GLOBAL_KEYS: Dict[int, str] = {
     Qt.Key.Key_Right:  ACTION_NEXT_FILE,
 }
 
-PANEL_KEYS: Dict[int, str] = {
-    # Extend per your data fields, e.g.:
-    Qt.Key.Key_Z: "DBZ",
-    Qt.Key.Key_V: "VEL",
-}
+def _product_keys() -> Dict[int, str]:
+    panel_keys: Dict[int, str] = {}
+    products = USER_CONFIG.user_config["products"]
+
+    for product, product_config in products.items():
+        configured_key = product_config["key"]
+        if len(configured_key) != 1 or not configured_key.isascii():
+            raise ValueError(
+                f"Product '{product}' key must be one ASCII character"
+            )
+
+        qt_key = ord(configured_key.upper())
+        if qt_key in panel_keys:
+            other_product = panel_keys[qt_key]
+            raise ValueError(
+                f"Products '{other_product}' and '{product}' both use "
+                f"the key '{configured_key}'"
+            )
+        panel_keys[qt_key] = product
+
+    return panel_keys
+
+
+PANEL_KEYS = _product_keys()
 
 
 class KeyRouter:

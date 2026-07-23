@@ -14,7 +14,7 @@ from frxxv.ingest.case_types.directory import Directory
 from frxxv.ingest.file_types.pyart import PyartFile
 from frxxv.plotting.ppi import ppi_factory
 from frxxv.state import AppState
-from frxxv.windows.panel_window import PanelWindow
+from frxxv.windows.data_window import DataWindow
 
 from frxx.utils.pathUtils import getPlatform
 
@@ -62,6 +62,7 @@ def main(argv=None):
     # share the same case, file, sweep, and scan data.
     state = AppState()
     file_manager = FileManager(state, app)
+    state.file_manager = file_manager
 
     if (starting_directory / "frxx_cases").is_dir():
         print("not implemented, treating as directory")
@@ -69,7 +70,7 @@ def main(argv=None):
     file_manager.set_loader(PyartFile)
 
 
-    window = PanelWindow(
+    window = DataWindow(
         "Frxx View",
         state=state,
         file_manager=file_manager,
@@ -83,7 +84,7 @@ def main(argv=None):
         panel.state.field_name = fields[i]
         panel.set_plot_factory(ppi_factory)
 
-    file_manager.set_case(case)
+    file_manager.set_case(case, initial_index=args.filenum)
 
     window.show()
     sys.exit(app.exec())
