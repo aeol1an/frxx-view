@@ -25,6 +25,7 @@ from frxxv.shell.shell import execute as execute_shell_command
 from frxxv.widgets.info_bar import InfoBar
 from frxxv.widgets.panel_grid import PanelGrid
 from frxxv.widgets.command_shell import CommandShell
+from frxxv.controllers.interaction_manager import InteractionManager
 from frxxv.controllers.key_router import (
     KeyRouter, ACTION_PREV_FILE, ACTION_NEXT_FILE,
 )
@@ -57,6 +58,7 @@ class DataWindow(QMainWindow):
             else self.state.file_manager
         )
         self.key_router   = KeyRouter(self.state)
+        self.interactions = InteractionManager(self)
 
         # Wire file navigation into the key router
         self.key_router.register_global(

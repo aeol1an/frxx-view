@@ -75,6 +75,7 @@ class AppState(QObject):
         # Import locally because these application objects all depend on
         # AppState. AppState owns their construction and lifetime.
         from frxxv.controllers.file_manager import FileManager
+        from frxxv.controllers.plot_controller import PlotController
         from frxxv.ingest.case_types.directory import Directory
         from frxxv.ingest.file_types.pyart import PyartFile
         from frxxv.plotting.ppi import ppi_factory
@@ -88,6 +89,7 @@ class AppState(QObject):
             loader=PyartFile,
         )
         self.file_manager: "FileManager" = FileManager(self, self)
+        self.plot_controller = PlotController(self)
 
         self.main_window: "DataWindow" = DataWindow(
             "Frxx View",

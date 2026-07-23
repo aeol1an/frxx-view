@@ -1,7 +1,53 @@
 """Print double-clicked radar values to the shell."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
+
+
+@dataclass
+class ValsSession:
+    app_state: Any
+    shell_output: Any
+    callback: Any = None
+    marker_id: str | None = None
+    scope: str = "scan"
+
+    def print_value(self, payload: dict):
+        self.shell_output.emit(_format_payload(payload), 0)
+        x_center = float(payload["x_center"])
+        y_center = float(payload["y_center"])
+        if self.marker_id is None:
+            self.marker_id = self.app_state.plot_controller.scatter(
+                [x_center],
+                [y_center],
+                color="black",
+                s=18,
+                zorder=30,
+            )
+        else:
+            self.app_state.plot_controller.update(
+                self.marker_id,
+                x=[x_center],
+                y=[y_center],
+            )
+
+    def close(self, reason: str):
+        try:
+            self.app_state.panel_double_clicked.disconnect(self.callback)
+        except (RuntimeError, TypeError):
+            pass
+        if self.marker_id is not None:
+            try:
+                self.app_state.plot_controller.remove(self.marker_id)
+            except KeyError:
+                pass
+        message = (
+            "Double-click values disabled after sweep change"
+            if reason == "scan_changed"
+            else "Double-click values disabled"
+        )
+        self.shell_output.emit(message, 0)
 
 
 def execute(app_state, shell_output: Any, *args: str):
@@ -10,22 +56,14 @@ def execute(app_state, shell_output: Any, *args: str):
         shell_output.emit(":vals does not accept arguments", 1)
         return
 
-    window = app_state.main_window
-    callback = getattr(window, "_vals_callback", None)
-    if callback is not None:
-        try:
-            app_state.panel_double_clicked.disconnect(callback)
-        except (RuntimeError, TypeError):
-            pass
-        window._vals_callback = None
-        shell_output.emit("Double-click values disabled", 0)
+    manager = app_state.main_window.interactions
+    if manager.stop("vals", reason="toggle"):
         return
 
-    def print_value(payload: dict):
-        shell_output.emit(_format_payload(payload), 0)
-
-    window._vals_callback = print_value
-    app_state.panel_double_clicked.connect(print_value)
+    session = ValsSession(app_state, shell_output)
+    session.callback = session.print_value
+    app_state.panel_double_clicked.connect(session.callback)
+    manager.start("vals", session)
     shell_output.emit("Double-click values enabled", 0)
 
 

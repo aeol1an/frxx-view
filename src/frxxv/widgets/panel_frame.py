@@ -179,6 +179,36 @@ class PanelFrame(QFrame):
         flat_index = np.nanargmin(distance_squared)
         i_theta, i_r = np.unravel_index(flat_index, xx.shape)
         scan_data = self.appstate.scan_data
+        theta_neighbor_distances = []
+        if i_theta > 0:
+            theta_neighbor_distances.append(
+                np.hypot(
+                    xx[i_theta, i_r] - xx[i_theta - 1, i_r],
+                    yy[i_theta, i_r] - yy[i_theta - 1, i_r],
+                )
+            )
+        if i_theta + 1 < xx.shape[0]:
+            theta_neighbor_distances.append(
+                np.hypot(
+                    xx[i_theta, i_r] - xx[i_theta + 1, i_r],
+                    yy[i_theta, i_r] - yy[i_theta + 1, i_r],
+                )
+            )
+        theta_gatewidth = (
+            float(np.mean(theta_neighbor_distances))
+            if theta_neighbor_distances
+            else 0.0
+        )
+        modifiers = tuple(
+            sorted(
+                str(value).lower()
+                for value in (getattr(event, "modifiers", ()) or ())
+            )
+        )
+        try:
+            button = int(event.button)
+        except (TypeError, ValueError):
+            button = event.button
 
         payload = {
             "panel_number": self.index,
@@ -191,6 +221,10 @@ class PanelFrame(QFrame):
             "x_center": float(xx[i_theta, i_r]),
             "y_center": float(yy[i_theta, i_r]),
             "value": panel_state.data[i_theta, i_r],
+            "theta_gatewidth": theta_gatewidth,
+            "button": button,
+            "key": event.key,
+            "modifiers": modifiers,
         }
         self.appstate.panel_double_clicked.emit(payload)
 
@@ -199,6 +233,7 @@ class PanelFrame(QFrame):
     def set_canvas(self, new_canvas: FigureCanvasQTAgg):
         """Replace the current canvas (full replot path)."""
         if self.canvas is not None:
+            self.appstate.plot_controller.unregister_panel(self.index)
             self.lims.unregister_axes(self)
 
             if self._axes is not None:
@@ -289,6 +324,11 @@ class PanelFrame(QFrame):
             ps.ax.callbacks.connect('xlim_changed', self.on_xlim_change),
             ps.ax.callbacks.connect('ylim_changed', self.on_ylim_change),
         ]
+        self.appstate.plot_controller.rebuild_panel(
+            self.index,
+            ps.ax,
+            self.canvas,
+        )
 
     # ── Resize → relim (no replot) ──────────────────────────────────
 
