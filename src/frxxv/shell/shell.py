@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import shlex
 from typing import Any
 
-from frxxv.shell import nav
+from frxxv.shell import nav, vals
 
 
 class CommandParseError(ValueError):
@@ -81,6 +81,10 @@ def execute(app_state, shell_output: Any, raw_command: str) -> ParsedCommand | N
 
     if command.name == "n":
         nav.execute(app_state, shell_output, "n", *command.args)
+        return None
+
+    if command.name == "vals":
+        vals.execute(app_state, shell_output, *command.args)
         return None
 
     # Window lifecycle commands remain owned by DataWindow.

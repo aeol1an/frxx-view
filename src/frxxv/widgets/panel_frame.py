@@ -239,7 +239,23 @@ class PanelFrame(QFrame):
         ps = self.state
         dpi = self.display_dpi
 
-        self._plot_factory(ps, self.appstate, self.width_inches, self.height_inches, dpi)
+        if self.canvas is not None:
+            width_px = self.canvas.width()
+            height_px = self.canvas.height()
+        else:
+            margins = self._inner_layout.contentsMargins()
+            width_px = self.width() - margins.left() - margins.right()
+            height_px = self.height() - margins.top() - margins.bottom()
+
+        width_inches = max(width_px, 1) / dpi
+        height_inches = max(height_px, 1) / dpi
+        self._plot_factory(
+            ps,
+            self.appstate,
+            width_inches,
+            height_inches,
+            dpi,
+        )
         
         if ps.fig is not None:
             canvas = FigureCanvasQTAgg(ps.fig)
