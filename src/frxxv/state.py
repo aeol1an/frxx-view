@@ -66,8 +66,6 @@ class AppState(QObject):
         self.panels: List[PanelState] = [PanelState() for _ in range(NUM_PANELS)]
         self.type = "ppi"
 
-        # Populated by the user's file-loader callback
-        self.scan_data: Optional[FileIngestible] = None
         self.scan_metadata: Dict[str, str] = {
             "instrument_name": "",
             "scan_time": "",
@@ -85,9 +83,11 @@ class AppState(QObject):
         case_directory_found = (
             self.starting_directory / "frxx_cases"
         ).is_dir()
-        self.case: "CaseIngest" = Directory(self.starting_directory)
+        self.case: "CaseIngest" = Directory(
+            self.starting_directory,
+            loader=PyartFile,
+        )
         self.file_manager: "FileManager" = FileManager(self, self)
-        self.file_manager.set_loader(PyartFile)
 
         self.main_window: "DataWindow" = DataWindow(
             "Frxx View",
@@ -109,6 +109,11 @@ class AppState(QObject):
 
         self.file_manager.set_case(self.case, initial_index=initial_index)
         self.main_window.show()
+
+    @property
+    def scan_data(self) -> Optional[FileIngestible]:
+        """Expose the active case's current file data for convenience."""
+        return self.case.data
 
     # ── layout property ─────────────────────────────────────────────
     @property

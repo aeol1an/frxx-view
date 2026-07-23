@@ -46,9 +46,21 @@ class FileIngestible(ABC):
         pass
 
     @abstractmethod
-    def nextSweepAvail(self) -> bool:
+    def nextSweep(self) -> bool:
+        """Advance one sweep, returning False at the end of the file."""
         pass
 
     @abstractmethod
-    def prevSweepAvail(self) -> bool:
+    def prevSweep(self) -> bool:
+        """Move back one sweep, returning False at the start of the file."""
+        pass
+
+    @abstractmethod
+    def firstSweep(self):
+        """Select the first sweep in the file."""
+        pass
+
+    @abstractmethod
+    def lastSweep(self):
+        """Select the last sweep in the file."""
         pass

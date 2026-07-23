@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 
 from frxxv.config import DEFAULT_LAYOUT, LAYOUTS
 from frxxv.state import AppState
+from frxxv.shell.shell import execute as execute_shell_command
 from frxxv.widgets.info_bar import InfoBar
 from frxxv.widgets.panel_grid import PanelGrid
 from frxxv.widgets.command_shell import CommandShell
@@ -322,20 +323,19 @@ class DataWindow(QMainWindow):
         QTimer.singleShot(10, finish_layout)
 
     def _run_command(self, raw_command: str):
-        command = raw_command.strip()
-        if command.startswith(":"):
-            command = command[1:].strip()
+        if self.shell is None:
+            return
 
-        if command == "q":
+        command = execute_shell_command(
+            self.state,
+            self.shell_output,
+            raw_command,
+        )
+        if command is not None and command.name == "q":
             self._hide_shell()
             return
 
-        if self.shell is not None:
-            self.shell.write(
-                f"Not an editor command: {command or '<empty>'}",
-                self.shell.STDERR,
-            )
-            self.shell.begin_command()
+        self.shell.begin_command()
 
     # ── Key routing ─────────────────────────────────────────────────
 

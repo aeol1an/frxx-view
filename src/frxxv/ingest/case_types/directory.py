@@ -1,16 +1,8 @@
-from pathlib import Path
-
 from ..case_ingest import CaseIngest
 
 
 class Directory(CaseIngest):
     file_globs = ("cfrad.*.nc",)
-
-    def __init__(self, directory: Path | str):
-        self.directory = Path(directory)
-        self.files: list[Path] = []
-        self.current = 0
-        self.update()
 
     def update(self):
         self.files = sorted(

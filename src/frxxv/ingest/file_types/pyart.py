@@ -58,8 +58,20 @@ class PyartFile(FileIngestible):
         self._validate_sweep()
         return self.radar.fixed_angle["data"][self.sweep]
 
-    def nextSweepAvail(self) -> bool:
-        return self.sweep < self.nsweeps - 1
+    def nextSweep(self) -> bool:
+        if self.sweep >= self.nsweeps - 1:
+            return False
+        self.sweep += 1
+        return True
 
-    def prevSweepAvail(self) -> bool:
-        return self.sweep > 0
+    def prevSweep(self) -> bool:
+        if self.sweep <= 0:
+            return False
+        self.sweep -= 1
+        return True
+
+    def firstSweep(self):
+        self.sweep = 0
+
+    def lastSweep(self):
+        self.sweep = self.nsweeps - 1
