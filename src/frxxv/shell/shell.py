@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import shlex
 from typing import Any, Callable
 
-from frxxv.shell import boundary, mask
+from frxxv.shell import boundary, mask, prod_nav
 
 
 class CommandParseError(ValueError):
@@ -90,6 +90,16 @@ def execute(
             app_state,
             interaction_manager,
             shell_output,
+            *command.args,
+        )
+        return None
+
+    if command.name in ("lp", "p", "lock"):
+        prod_nav.execute(
+            app_state,
+            interaction_manager,
+            shell_output,
+            command.name,
             *command.args,
         )
         return None

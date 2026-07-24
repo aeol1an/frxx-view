@@ -14,6 +14,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeyEvent
 
 from frxxv.config import USER_CONFIG
+from frxxv.plotting.product import resolve_registered_product
 from frxxv.state import AppState
 
 # ── Action name constants ───────────────────────────────────────────
@@ -85,8 +86,17 @@ class KeyRouter:
         if key in PANEL_KEYS and self.state.selected is not None:
             field = PANEL_KEYS[key]
             idx = self.state.selected
-            self.state.panels[idx].field_name = field
-            self.state.panels[idx].product_override = None
+            data = self.state.scan_data
+            if data is None:
+                return True
+            product = resolve_registered_product(data, field)
+            if product is None:
+                self.state.main_window.shell_output.emit(
+                    f"Product {field!r} is unavailable",
+                    1,
+                )
+                return True
+            self.state.panels[idx].product = product
             self.state.panel_field_changed.emit(idx)
             return True
 

@@ -21,9 +21,9 @@ if TYPE_CHECKING:
     from frxxv.ingest.case_ingest import CaseIngest
     from frxxv.windows.data_window import DataWindow
 
-@dataclass
-class ProductOverride:
-    """Per-panel settings for plotting one exact ingest product."""
+@dataclass(frozen=True)
+class ProductSpec:
+    """Complete instructions for plotting one exact ingest product."""
 
     raw_field: str
     title: str
@@ -32,14 +32,14 @@ class ProductOverride:
     vmax: float
     nticks: int = 5
     units: str = ""
+    registered_name: Optional[str] = None
 
 
 @dataclass
 class PanelState:
     """Per-panel mutable state.  Always NUM_PANELS of these in AppState.panels."""
     #Set prior to factory creation
-    field_name: str = ""
-    product_override: Optional[ProductOverride] = None
+    product: Optional[ProductSpec] = None
 
     #Set by the factory
     fig: Any  = None          # matplotlib Figure
@@ -102,19 +102,26 @@ class AppState(QObject):
             self.starting_directory,
             loader=PyartFile,
         )
-        self.file_manager: "FileManager" = FileManager(self, self)
         self.plot_controller = PlotController(self)
+        self.file_manager: "FileManager" = FileManager(self, self)
+        self.file_manager.set_case(self.case, initial_index=initial_index)
 
         self.main_window: "DataWindow" = DataWindow(
             "Frxx View",
             state=self,
         )
 
-        fields = ["DBZ", "VEL", "ZDR", "RHOHV"]
+        from frxxv.plotting.product import resolve_registered_product
+
+        products = ["DBZ", "VEL", "ZDR", "RHOHV"]
         visible = len(LAYOUTS[self.layout])
         for i in range(visible):
             panel = self.main_window.panel_grid.panels[i]
-            panel.state.field_name = fields[i]
+            if self.scan_data is not None:
+                panel.state.product = resolve_registered_product(
+                    self.scan_data,
+                    products[i],
+                )
             panel.set_plot_factory(ppi_factory)
 
         if case_directory_found:
@@ -123,7 +130,8 @@ class AppState(QObject):
                 1,
             )
 
-        self.file_manager.set_case(self.case, initial_index=initial_index)
+        if self.scan_data is not None:
+            self.scan_changed.emit()
         self.main_window.show()
 
     @property

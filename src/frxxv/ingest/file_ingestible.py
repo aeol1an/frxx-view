@@ -1,9 +1,13 @@
 from abc import ABC, abstractmethod
+from typing import Any
+
 from numpy.typing import NDArray
 
 class FileIngestible(ABC):
     sweep: int = 0
     nsweeps: int = 1
+    products: list[str] | None = None
+    data: Any = None
 
     def __getitem__(self, name) -> NDArray:
         return self.get_field(name)
@@ -14,11 +18,6 @@ class FileIngestible(ABC):
 
     @abstractmethod
     def fieldAvail(self, name: str) -> bool:
-        pass
-
-    @abstractmethod
-    def products(self) -> list[str]:
-        """Return the product fields available in this file."""
         pass
 
     @abstractmethod

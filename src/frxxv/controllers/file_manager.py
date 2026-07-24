@@ -69,8 +69,24 @@ class FileManager(QObject):
         if self.case.data is None:
             return
         data = self.case.data
+        self._refresh_registered_products(data)
         self._update_scan_metadata(data)
         self.state.scan_changed.emit()
+
+    def _refresh_registered_products(self, data: FileIngestible):
+        """Resolve registered panel products against the newly active file."""
+        from frxxv.plotting.product import resolve_registered_product
+
+        for panel in self.state.panels:
+            product = panel.product
+            if product is None or product.registered_name is None:
+                continue
+            refreshed = resolve_registered_product(
+                data,
+                product.registered_name,
+            )
+            if refreshed is not None:
+                panel.product = refreshed
 
     def _update_scan_metadata(self, data: FileIngestible):
         angle_name = {

@@ -38,7 +38,11 @@ class BoundarySession:
             except KeyError:
                 pass
 
-        self.manager.masks.remove("boundary")
+        if self.mask is not None:
+            self.manager.masks.update.emit(
+                "boundary",
+                np.zeros_like(self.mask, dtype=np.bool_),
+            )
         self.mask = None
 
         message = (
@@ -146,7 +150,7 @@ def _close_boundary(
         inclusive_radius,
         signed_area,
     )
-    session.manager.masks.set("boundary", session.mask)
+    session.manager.masks.update.emit("boundary", session.mask)
 
     session.closed = True
     _render(app_state, session)

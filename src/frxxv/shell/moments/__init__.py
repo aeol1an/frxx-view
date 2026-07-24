@@ -16,7 +16,7 @@ def execute(app_state, interaction_manager, shell_output, command) -> bool:
         )
         return True
 
-    if command.name in ("begin", "end", "n", "ls", "lp", "p"):
+    if command.name in ("begin", "end", "n", "ls"):
         nav.execute(
             app_state,
             interaction_manager,
