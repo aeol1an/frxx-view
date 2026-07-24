@@ -12,7 +12,7 @@ class ValsSession:
     manager: Any = None
     callback: Any = None
     marker_id: str | None = None
-    scope: str = "scan"
+    scope: str = "window"
 
     def print_value(self, payload: dict):
         self.shell_output.emit(_format_payload(payload), 0)
@@ -42,12 +42,7 @@ class ValsSession:
                 self.manager.window.plot_controller.remove(self.marker_id)
             except KeyError:
                 pass
-        message = (
-            "Double-click values disabled after sweep change"
-            if reason == "scan_changed"
-            else "Double-click values disabled"
-        )
-        self.shell_output.emit(message, 0)
+        self.shell_output.emit("Double-click values disabled", 0)
 
 
 def execute(app_state, interaction_manager, shell_output: Any, *args: str):
