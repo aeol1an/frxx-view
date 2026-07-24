@@ -97,7 +97,9 @@ class PanelFrame(QFrame):
         Register the function that creates a figure from scratch.
 
         Expected to mutate the PanelState in-place:
-            factory(panel_state, scan_data, width_in, height_in, dpi) -> None
+            factory(
+                panel_state, scan_data, width_in, height_in, dpi, window
+            ) -> None
         """
         self._plot_factory = factory
 
@@ -284,17 +286,21 @@ class PanelFrame(QFrame):
 
         width_inches = max(width_px, 1) / dpi
         height_inches = max(height_px, 1) / dpi
+        previous_figure = ps.fig
         self._plot_factory(
             ps,
             self.appstate,
             width_inches,
             height_inches,
             dpi,
+            self.window(),
         )
         
-        if ps.fig is not None:
-            canvas = FigureCanvasQTAgg(ps.fig)
-            self.set_canvas(canvas)
+        if ps.fig is None or ps.fig is previous_figure:
+            return
+
+        canvas = FigureCanvasQTAgg(ps.fig)
+        self.set_canvas(canvas)
 
         if self.canvas is None:
             return

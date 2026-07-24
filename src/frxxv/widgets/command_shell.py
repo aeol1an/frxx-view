@@ -11,6 +11,8 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QFrame, QLineEdit, QPlainTextEdit, QVBoxLayout
 
+from frxxv.config import BORDER_COLOR_SELECTED
+
 
 class HistoryLineEdit(QLineEdit):
     """Single-line command editor with terminal-style history traversal."""
@@ -77,9 +79,11 @@ class CommandShell(QFrame):
     command_submitted = Signal(str)
     STDOUT = 0
     STDERR = 1
+    COMMAND = 2
     OUTPUT_COLORS = {
         STDOUT: QColor("#F2F2F7"),
         STDERR: QColor("#FFD60A"),
+        COMMAND: QColor(BORDER_COLOR_SELECTED),
     }
 
     def __init__(self, parent=None):
@@ -145,4 +149,6 @@ class CommandShell(QFrame):
         command = self.input.text()
         self.input.remember(command)
         self.input.clear()
+        command_text = command.strip().lstrip(":").lstrip()
+        self.write(f":{command_text}", self.COMMAND)
         self.command_submitted.emit(command)

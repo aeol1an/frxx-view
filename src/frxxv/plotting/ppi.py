@@ -10,18 +10,22 @@ from __future__ import annotations
 
 from frxx.viz.plotMoments import plotPPI, updatePPIAxesText
 
-def ppi_factory(panel_state, app_state, width_inches, height_inches, dpi):
+def ppi_factory(
+    panel_state,
+    app_state,
+    width_inches,
+    height_inches,
+    dpi,
+    window,
+):
     """
     A PlotFactory compatible with PanelGrid.set_plot_factory().
     Uses create_test_figure for demonstration.
     """
     data = app_state.scan_data
     product = panel_state.product
-    if (
-        data is None
-        or product is None
-        or not data.fieldAvail(product.raw_field)
-    ):
+    resolved = window.product_manager.resolve(product)
+    if data is None or resolved is None:
         return
 
     y_center = None
@@ -29,9 +33,9 @@ def ppi_factory(panel_state, app_state, width_inches, height_inches, dpi):
         y_center = (panel_state.ylim[0] + panel_state.ylim[1]) / 2
 
     fig, ax, mesh, cb, grid = plotPPI(
-        data[product.raw_field],
-        title=product.title,
-        units=product.units,
+        resolved.data,
+        title=resolved.title,
+        units=resolved.units,
         rangesKM=data.rkm,
         azimuths=data.az,
         elevation=data.fixedAngle,
@@ -40,8 +44,8 @@ def ppi_factory(panel_state, app_state, width_inches, height_inches, dpi):
         dpi = dpi,
         xlim=panel_state.xlim,
         yCenter=y_center,
-        clims=(product.vmin, product.vmax, product.nticks),
-        cmap=product.cmap,
+        clims=(resolved.vmin, resolved.vmax, resolved.nticks),
+        cmap=resolved.cmap,
         backend=False
     )
     panel_state.fig      = fig
@@ -49,7 +53,7 @@ def ppi_factory(panel_state, app_state, width_inches, height_inches, dpi):
     panel_state.plot     = mesh
     panel_state.cb       = cb
     panel_state.grid     = grid
-    panel_state.data     = data[product.raw_field]
+    panel_state.data     = resolved.data
     panel_state.xlim     = tuple(ax.get_xlim())
     panel_state.ylim     = tuple(ax.get_ylim())
     panel_state.updater  = updatePPIAxesText

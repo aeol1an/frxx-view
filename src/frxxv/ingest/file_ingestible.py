@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any
 
 from numpy.typing import NDArray
@@ -8,6 +9,7 @@ class FileIngestible(ABC):
     nsweeps: int = 1
     products: list[str] | None = None
     data: Any = None
+    overwritable: bool = False
 
     def __getitem__(self, name) -> NDArray:
         return self.get_field(name)
@@ -17,7 +19,17 @@ class FileIngestible(ABC):
         pass
 
     @abstractmethod
+    def get_product(self, name: str) -> dict[str, Any]:
+        """Return a complete product definition, including its data."""
+        pass
+
+    @abstractmethod
     def fieldAvail(self, name: str) -> bool:
+        pass
+
+    @abstractmethod
+    def write(self, filename: Path | str) -> None:
+        """Write this ingestible's complete data to a file."""
         pass
 
     @abstractmethod
@@ -42,6 +54,36 @@ class FileIngestible(ABC):
     @property
     @abstractmethod
     def el(self) -> NDArray:
+        pass
+
+    @property
+    @abstractmethod
+    def va(self) -> NDArray:
+        """Nyquist velocity values for the current sweep."""
+        pass
+
+    @property
+    @abstractmethod
+    def ra(self) -> NDArray:
+        """Unambiguous range values in meters for the current sweep."""
+        pass
+
+    @property
+    @abstractmethod
+    def pw(self) -> NDArray:
+        """Pulse-width values for the current sweep."""
+        pass
+
+    @property
+    @abstractmethod
+    def prt(self) -> NDArray:
+        """Pulse-repetition-time values for the current sweep."""
+        pass
+
+    @property
+    @abstractmethod
+    def wavelength(self) -> NDArray:
+        """Radar wavelength values in meters."""
         pass
     
     @property

@@ -20,7 +20,7 @@ from frxxv.widgets.panel_frame import PanelFrame
 # ── Factory type aliases ────────────────────────────────────────────
 #
 # PlotFactory signature:
-#   (panel_state, scan_data, width_inches, height_inches, dpi) -> None
+#   (panel_state, scan_data, width_inches, height_inches, dpi, window) -> None
 #   Must set panel_state.fig / .ax / .plot / .cb / .xlim / .ylim
 #
 # UpdateFactory signature:

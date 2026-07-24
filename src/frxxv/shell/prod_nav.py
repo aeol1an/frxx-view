@@ -6,7 +6,6 @@ from typing import Any
 
 import numpy as np
 
-from frxxv.plotting.product import resolve_registered_product
 from frxxv.state import ProductSpec
 
 
@@ -34,7 +33,7 @@ def execute(
 ):
     """List products or change the selected panel's product."""
     if action == "lp":
-        _list_products(app_state, shell_output, args)
+        _list_products(app_state, interaction_manager, shell_output, args)
     elif action == "lock":
         _lock_product(interaction_manager, shell_output, args)
     else:
@@ -57,14 +56,18 @@ def _lock_product(interaction_manager, shell_output: Any, args):
         shell_output.emit("The selected panel has no product to lock", 1)
         return
 
-    panel.product = replace(panel.product, registered_name=None)
-    shell_output.emit(
-        f"Panel {panel_index} locked to {panel.product.raw_field}",
-        0,
+    resolved = interaction_manager.window.product_manager.resolve(panel.product)
+    if resolved is None:
+        shell_output.emit("The selected panel product cannot be resolved", 1)
+        return
+    panel.product = replace(
+        panel.product,
+        raw_field=resolved.raw_field,
+        registered_name=None,
     )
 
 
-def _list_products(app_state, shell_output: Any, args):
+def _list_products(app_state, interaction_manager, shell_output: Any, args):
     if args:
         shell_output.emit(":lp does not accept arguments", 1)
         return
@@ -74,7 +77,7 @@ def _list_products(app_state, shell_output: Any, args):
         shell_output.emit("No file is currently loaded", 1)
         return
 
-    products = data.products
+    products = interaction_manager.window.product_manager.available_products()
     if not products:
         shell_output.emit("The current file has no products", 1)
         return
@@ -105,7 +108,9 @@ def _set_product(app_state, interaction_manager, shell_output: Any, args):
         return
 
     if len(args) == 1:
-        product = resolve_registered_product(data, args[0])
+        product = interaction_manager.window.product_manager.select_registered(
+            args[0]
+        )
         if product is None:
             shell_output.emit(
                 f"Product {args[0]!r} is unavailable or has no "
@@ -114,7 +119,11 @@ def _set_product(app_state, interaction_manager, shell_output: Any, args):
             )
             return
     else:
-        product = _parse_custom_product(data, shell_output, args)
+        product = _parse_custom_product(
+            interaction_manager.window.product_manager,
+            shell_output,
+            args,
+        )
         if product is None:
             return
 
@@ -122,13 +131,13 @@ def _set_product(app_state, interaction_manager, shell_output: Any, args):
     state.panel_field_changed.emit(panel_index)
 
 
-def _parse_custom_product(data, shell_output: Any, args):
+def _parse_custom_product(product_manager, shell_output: Any, args):
     raw_field, title, cmap = args[:3]
-    available = {name.casefold(): name for name in (data.products or ())}
-    resolved_field = available.get(raw_field.casefold())
-    if resolved_field is None:
+    resolved = product_manager.resolve_raw(raw_field)
+    if resolved is None:
         shell_output.emit(f"Raw product {raw_field!r} is unavailable", 1)
         return None
+    resolved_field, product_data = resolved
 
     if not title or len(title) > MAX_PRODUCT_TITLE_LENGTH:
         shell_output.emit(
@@ -139,14 +148,14 @@ def _parse_custom_product(data, shell_output: Any, args):
         return None
 
     if len(args) == 3:
-        limits = _data_limits(data[resolved_field], shell_output)
+        limits = _data_limits(product_data, shell_output)
         nticks = DEFAULT_PRODUCT_TICKS
         units = ""
     else:
         limits = _parse_limits(
             args[3],
             args[4],
-            data[resolved_field],
+            product_data,
             shell_output,
         )
         parsed_optional = _parse_ticks_and_units(args[5:], shell_output)

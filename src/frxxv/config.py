@@ -41,6 +41,7 @@ DEFAULT_POLL_INTERVAL_MS = 2000
 class ConfigManager():
     default_config = {
         "DEFAULT_LAYOUT": "2x2",
+        "outdir": "frxxv_out",
 
         "products": {
             "DBZ": {
@@ -78,6 +79,7 @@ class ConfigManager():
     # may appear inside each product's configuration.
     config_schema = {
         "DEFAULT_LAYOUT": str,
+        "outdir": str,
         "products": {
             "*": {
                 "priority": list,
