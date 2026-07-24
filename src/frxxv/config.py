@@ -42,6 +42,7 @@ class ConfigManager():
     default_config = {
         "DEFAULT_LAYOUT": "2x2",
         "outdir": "frxxv_out",
+        "initial_products": ["DBZ", "VEL", "ZDR", "RHOHV"],
 
         "products": {
             "DBZ": {
@@ -80,6 +81,7 @@ class ConfigManager():
     config_schema = {
         "DEFAULT_LAYOUT": str,
         "outdir": str,
+        "initial_products": list,
         "products": {
             "*": {
                 "priority": list,

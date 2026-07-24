@@ -104,7 +104,15 @@ def execute(
         )
         return None
 
-    if command.name in ("copy", "set", "del", "undo", "redo"):
+    if command.name in (
+        "copy",
+        "set",
+        "del",
+        "undo",
+        "redo",
+        "edits",
+        "rmedits",
+    ):
         basic_edits.execute(
             app_state,
             interaction_manager,

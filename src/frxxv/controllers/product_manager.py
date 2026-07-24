@@ -32,15 +32,25 @@ class ProductManager:
     def __init__(self, window):
         self.window = window
 
+    def select_initial(self, panel_index: int) -> ProductSpec | None:
+        """Resolve the configured startup product for one panel."""
+        initial = USER_CONFIG.user_config["initial_products"]
+        if panel_index < 0 or panel_index >= len(initial):
+            return None
+        return self.select_registered(initial[panel_index])
+
     def select_registered(self, requested: str) -> ProductSpec | None:
-        """Build a registered specification for the first known priority."""
+        """Build a registered specification, using a missing-data fallback."""
         configured = self._registered_config(requested)
         if configured is None:
             return None
         title, config = configured
-        raw_field = self._first_priority_name(config["priority"])
+        priorities = config["priority"]
+        raw_field = self._first_priority_name(priorities)
         if raw_field is None:
-            return None
+            if not priorities:
+                return None
+            raw_field = priorities[0]
         vmin, vmax, nticks = config["clims"]
         return ProductSpec(
             raw_field=raw_field,

@@ -111,15 +111,12 @@ class AppState(QObject):
             state=self,
         )
 
-        products = ["DBZ", "VEL", "ZDR", "RHOHV"]
         visible = len(LAYOUTS[self.layout])
         for i in range(visible):
             panel = self.main_window.panel_grid.panels[i]
             if self.scan_data is not None:
                 panel.state.product = (
-                    self.main_window.product_manager.select_registered(
-                        products[i],
-                    )
+                    self.main_window.product_manager.select_initial(i)
                 )
             panel.set_plot_factory(ppi_factory)
 

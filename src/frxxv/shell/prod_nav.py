@@ -21,7 +21,8 @@ _PRODUCT_USAGE = """Usage:
 
 Custom VMIN and VMAX may both be empty strings to calculate fixed limits
 from the current data. NTICKS defaults to 5. With one optional trailing
-argument, an integer is NTICKS; any other value is UNITS."""
+argument, an integer is NTICKS; any other value is UNITS. Products not
+present in the current data require explicit VMIN and VMAX."""
 
 
 def execute(
@@ -135,9 +136,10 @@ def _parse_custom_product(product_manager, shell_output: Any, args):
     raw_field, title, cmap = args[:3]
     resolved = product_manager.resolve_raw(raw_field)
     if resolved is None:
-        shell_output.emit(f"Raw product {raw_field!r} is unavailable", 1)
-        return None
-    resolved_field, product_data = resolved
+        resolved_field = raw_field
+        product_data = None
+    else:
+        resolved_field, product_data = resolved
 
     if not title or len(title) > MAX_PRODUCT_TITLE_LENGTH:
         shell_output.emit(
@@ -204,6 +206,13 @@ def _parse_limits(vmin_text, vmax_text, values, shell_output: Any):
 
 
 def _data_limits(values, shell_output: Any):
+    if values is None:
+        shell_output.emit(
+            "Cannot calculate limits: product is unavailable; "
+            "provide explicit VMIN and VMAX",
+            1,
+        )
+        return None
     finite = np.ma.masked_invalid(np.ma.asarray(values)).compressed()
     if finite.size == 0:
         shell_output.emit("Cannot calculate limits: product has no finite data", 1)

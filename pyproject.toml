@@ -28,6 +28,9 @@ dependencies = [
 frxxv = "frxxv.app:main"
 frxx-view = "frxxv.app:main"
 
+[tool.setuptools.data-files]
+"assets" = ["assets/frxx_icon.png"]
+
 [project.urls]
 "Homepage" = "https://github.com/aeol1an/frxx-view"
 "Bug Tracker" = "https://github.com/aeol1an/frxx-view/issues"

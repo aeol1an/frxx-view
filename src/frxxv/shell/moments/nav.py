@@ -12,7 +12,6 @@ def execute(
     *args: str,
 ):
     """Navigate by a sweep count, file number, or case boundary."""
-    del interaction_manager
     if action in ("begin", "end"):
         _go_to_boundary(app_state, shell_output, action, args)
         return
@@ -21,6 +20,14 @@ def execute(
         return
     if action == "ls":
         _list_files(app_state, shell_output, args)
+        return
+    if action == "le":
+        _list_edited_files(
+            app_state,
+            interaction_manager,
+            shell_output,
+            args,
+        )
         return
 
     if len(args) > 1:
@@ -106,6 +113,40 @@ def _list_files(app_state, shell_output: Any, args):
 
     lines = ["Case files:"]
     for index, path in enumerate(case.files):
+        marker = "*" if index == case.current else " "
+        lines.append(f"{marker} {index}: {path.name}")
+    shell_output.emit("\n".join(lines), 0)
+
+
+def _list_edited_files(
+    app_state,
+    interaction_manager,
+    shell_output: Any,
+    args,
+):
+    if args:
+        shell_output.emit(":le does not accept arguments", 1)
+        return
+
+    case = app_state.case
+    if not case.files:
+        shell_output.emit("The case has no files", 1)
+        return
+
+    edited_names = set(
+        interaction_manager.window.edit_manager.edited_source_names()
+    )
+    matches = [
+        (index, path)
+        for index, path in enumerate(case.files)
+        if path.name in edited_names
+    ]
+    if not matches:
+        shell_output.emit("No case files have active edits", 0)
+        return
+
+    lines = ["Edited case files:"]
+    for index, path in matches:
         marker = "*" if index == case.current else " "
         lines.append(f"{marker} {index}: {path.name}")
     shell_output.emit("\n".join(lines), 0)

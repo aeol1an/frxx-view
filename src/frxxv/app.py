@@ -1,6 +1,6 @@
 """Application entry point."""
 import sys
-from importlib.resources import files
+import sysconfig
 import setproctitle
 from pathlib import Path
 
@@ -17,7 +17,11 @@ def main(argv=None):
     args = parse_args(argv)
     starting_directory = args.directory.expanduser().resolve()
 
-    icon_path = str(Path(str(files("frxxv")/ '..' / '..' / "assets" / "frxx_icon.png")).resolve())
+    source_icon = Path(__file__).resolve().parents[2] / "assets" / "frxx_icon.png"
+    installed_icon = (
+        Path(sysconfig.get_path("data")) / "assets" / "frxx_icon.png"
+    )
+    icon_path = str(source_icon if source_icon.is_file() else installed_icon)
 
     sys.argv[0] = "Frxx View"
     app = QApplication([sys.argv[0]])
@@ -42,7 +46,7 @@ def main(argv=None):
             f"Exec=true\n"
             f"Icon={icon_path}\n"
             f"Type=Application\n"
-            f"NoDisplay=true"
+            f"NoDisplay=true\n"
             f"Terminal=false\n"
         )
         app.setDesktopFileName('frxx-view')

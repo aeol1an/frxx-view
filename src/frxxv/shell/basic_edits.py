@@ -20,6 +20,10 @@ def execute(
         _set(interaction_manager, shell_output, args)
     elif action == "del":
         _delete(interaction_manager, shell_output, args)
+    elif action == "edits":
+        _show_edits(interaction_manager, shell_output, args)
+    elif action == "rmedits":
+        _remove_edits(interaction_manager, shell_output, args)
     else:
         _move_history(interaction_manager, shell_output, action, args)
 
@@ -88,6 +92,91 @@ def _delete(interaction_manager, shell_output: Any, args):
         return
     raw_field, _data = resolved
     window.edit_manager.record_deletion(raw_field)
+    _replot_products(window)
+
+
+def _show_edits(interaction_manager, shell_output: Any, args):
+    if args:
+        shell_output.emit(":edits does not accept arguments", 1)
+        return
+
+    window = interaction_manager.window
+    ingestible = window.state.scan_data
+    if ingestible is None:
+        shell_output.emit("No file is currently loaded", 1)
+        return
+
+    edit_history = window.edit_manager.edit_history
+    sweep_edits = (
+        {} if edit_history is None else edit_history[ingestible.sweep]
+    )
+    if not sweep_edits:
+        shell_output.emit("(no edits)", 0)
+        return
+
+    lines = []
+    for product in sorted(sweep_edits, key=str.casefold):
+        edits = sweep_edits[product]
+        labels = ["start"] + [
+            (
+                "create"
+                if isinstance(snapshot, dict)
+                else "delete"
+                if snapshot is None
+                else "edit"
+            )
+            for snapshot in edits.snapshots
+        ]
+        cursor_position = edits.index + 1
+        if 0 <= cursor_position < len(labels):
+            labels[cursor_position] = "*" + labels[cursor_position]
+        lines.extend((f"{product}:", f"  [{', '.join(labels)}]"))
+
+    shell_output.emit("\n".join(lines), 0)
+
+
+def _remove_edits(interaction_manager, shell_output: Any, args):
+    if len(args) != 1:
+        shell_output.emit(":rmedits requires one product name", 1)
+        return
+
+    window = interaction_manager.window
+    requested = args[0].casefold()
+    stored_name = next(
+        (
+            name
+            for name in window.edit_manager.product_names()
+            if name.casefold() == requested
+        ),
+        None,
+    )
+    affected_panels = []
+    if stored_name is not None:
+        for panel_index, panel in enumerate(window.state.panels):
+            resolved = window.product_manager.resolve(panel.product)
+            if (
+                resolved is not None
+                and resolved.raw_field.casefold() == stored_name.casefold()
+            ):
+                affected_panels.append(panel_index)
+
+    removed = window.edit_manager.remove_history(args[0])
+    if removed is None:
+        shell_output.emit(
+            f"No edits found for product {args[0]!r} in the current sweep",
+            1,
+        )
+        return
+
+    remaining = {
+        name.casefold()
+        for name in window.product_manager.available_products()
+    }
+    if removed.casefold() not in remaining:
+        for panel_index in affected_panels:
+            window.state.panels[panel_index].product = (
+                window.product_manager.select_initial(panel_index)
+            )
     _replot_products(window)
 
 
