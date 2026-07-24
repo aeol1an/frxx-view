@@ -1,4 +1,4 @@
-"""Print double-clicked radar values to the shell."""
+"""Print double-clicked moment values to the shell."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,6 +9,7 @@ from typing import Any
 class ValsSession:
     app_state: Any
     shell_output: Any
+    manager: Any = None
     callback: Any = None
     marker_id: str | None = None
     scope: str = "scan"
@@ -18,15 +19,14 @@ class ValsSession:
         x_center = float(payload["x_center"])
         y_center = float(payload["y_center"])
         if self.marker_id is None:
-            self.marker_id = self.app_state.plot_controller.scatter(
+            self.marker_id = self.manager.window.plot_controller.scatter(
                 [x_center],
                 [y_center],
                 color="black",
                 s=18,
-                zorder=30,
             )
         else:
-            self.app_state.plot_controller.update(
+            self.manager.window.plot_controller.update(
                 self.marker_id,
                 x=[x_center],
                 y=[y_center],
@@ -34,12 +34,12 @@ class ValsSession:
 
     def close(self, reason: str):
         try:
-            self.app_state.panel_double_clicked.disconnect(self.callback)
+            self.manager.window.panel_double_clicked.disconnect(self.callback)
         except (RuntimeError, TypeError):
             pass
         if self.marker_id is not None:
             try:
-                self.app_state.plot_controller.remove(self.marker_id)
+                self.manager.window.plot_controller.remove(self.marker_id)
             except KeyError:
                 pass
         message = (
@@ -50,20 +50,19 @@ class ValsSession:
         self.shell_output.emit(message, 0)
 
 
-def execute(app_state, shell_output: Any, *args: str):
-    """Toggle readable double-click value output for the main window."""
+def execute(app_state, interaction_manager, shell_output: Any, *args: str):
+    """Toggle readable moment double-click output for one data window."""
     if args:
         shell_output.emit(":vals does not accept arguments", 1)
         return
 
-    manager = app_state.main_window.interactions
-    if manager.stop("vals", reason="toggle"):
+    if interaction_manager.stop("vals", reason="toggle"):
         return
 
-    session = ValsSession(app_state, shell_output)
+    session = ValsSession(app_state, shell_output, interaction_manager)
     session.callback = session.print_value
-    app_state.panel_double_clicked.connect(session.callback)
-    manager.start("vals", session)
+    interaction_manager.window.panel_double_clicked.connect(session.callback)
+    interaction_manager.start("vals", session)
     shell_output.emit("Double-click values enabled", 0)
 
 

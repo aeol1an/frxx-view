@@ -22,22 +22,40 @@ def ppi_factory(panel_state, app_state, width_inches, height_inches, dpi):
     """
     field = panel_state.field_name
     data: FileIngestible = app_state.scan_data
-    product_config = USER_CONFIG.user_config["products"][field]
-    data_field = next(
-        (
-            candidate
-            for candidate in product_config["priority"]
-            if data.fieldAvail(candidate)
-        ),
-        None,
-    )
-    if data_field is None:
-        attempted = ", ".join(product_config["priority"])
-        app_state.main_window.shell_output.emit(
-            f"Product {field} unavailable; tried: {attempted}",
-            1,
+    override = panel_state.product_override
+    if override is None:
+        product_config = USER_CONFIG.user_config["products"][field]
+        data_field = next(
+            (
+                candidate
+                for candidate in product_config["priority"]
+                if data.fieldAvail(candidate)
+            ),
+            None,
         )
-        return
+        if data_field is None:
+            attempted = ", ".join(product_config["priority"])
+            app_state.main_window.shell_output.emit(
+                f"Product {field} unavailable; tried: {attempted}",
+                1,
+            )
+            return
+        title = field
+        units = product_config["units"]
+        clims = product_config["clims"]
+        cmap = product_config["cmap"]
+    else:
+        data_field = override.raw_field
+        if not data.fieldAvail(data_field):
+            app_state.main_window.shell_output.emit(
+                f"Raw product {data_field!r} is unavailable",
+                1,
+            )
+            return
+        title = override.title
+        units = override.units
+        clims = (override.vmin, override.vmax, override.nticks)
+        cmap = override.cmap
 
     y_center = None
     if panel_state.ylim is not None:
@@ -45,8 +63,8 @@ def ppi_factory(panel_state, app_state, width_inches, height_inches, dpi):
 
     fig, ax, mesh, cb, grid = plotPPI(
         data[data_field],
-        title=field,
-        units=product_config["units"],
+        title=title,
+        units=units,
         rangesKM=data.rkm,
         azimuths=data.az,
         elevation=data.fixedAngle,
@@ -55,8 +73,8 @@ def ppi_factory(panel_state, app_state, width_inches, height_inches, dpi):
         dpi = dpi,
         xlim=panel_state.xlim,
         yCenter=y_center,
-        clims=product_config["clims"],
-        cmap=product_config["cmap"],
+        clims=clims,
+        cmap=cmap,
         backend=False
     )
     panel_state.fig      = fig

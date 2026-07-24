@@ -22,10 +22,24 @@ if TYPE_CHECKING:
     from frxxv.windows.data_window import DataWindow
 
 @dataclass
+class ProductOverride:
+    """Per-panel settings for plotting one exact ingest product."""
+
+    raw_field: str
+    title: str
+    cmap: str
+    vmin: float
+    vmax: float
+    nticks: int = 5
+    units: str = ""
+
+
+@dataclass
 class PanelState:
     """Per-panel mutable state.  Always NUM_PANELS of these in AppState.panels."""
     #Set prior to factory creation
     field_name: str = ""
+    product_override: Optional[ProductOverride] = None
 
     #Set by the factory
     fig: Any  = None          # matplotlib Figure

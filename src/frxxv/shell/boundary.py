@@ -21,32 +21,25 @@ class BoundarySession:
     points: list[Point] = field(default_factory=list)
     gatewidths: list[float] = field(default_factory=list)
     overlay_id: str | None = None
+    mask: NDArray[np.bool_] | None = None
     closed: bool = False
     callback: Any = None
     scope: str = "scan"
 
     def close(self, reason: str):
         try:
-            self.app_state.panel_double_clicked.disconnect(self.callback)
+            self.manager.window.panel_double_clicked.disconnect(self.callback)
         except (RuntimeError, TypeError):
             pass
 
         if self.overlay_id is not None:
             try:
-                self.app_state.plot_controller.remove(self.overlay_id)
+                self.manager.window.plot_controller.remove(self.overlay_id)
             except KeyError:
                 pass
 
-        self.manager.mask = None
-
-        # ── DEBUG: restore Panel 1 after mask visualization ─────────
-        panel_state = self.app_state.panels[1]
-        panel_frame = self.app_state.main_window.panel_grid.panels[1]
-        if panel_state.plot is not None and panel_state.data is not None:
-            panel_state.plot.set_array(panel_state.data)
-            if panel_frame.canvas is not None:
-                panel_frame.canvas.draw_idle()
-        # ── END DEBUG: restore Panel 1 after mask visualization ─────
+        self.manager.masks.remove("boundary")
+        self.mask = None
 
         message = (
             "Boundary disabled after sweep change"
@@ -56,24 +49,23 @@ class BoundarySession:
         self.shell_output.emit(message, 0)
 
 
-def execute(app_state, shell_output: Any, *args: str):
+def execute(app_state, interaction_manager, shell_output: Any, *args: str):
     """Toggle interactive boundary drawing."""
     if args:
         shell_output.emit(":bnd does not accept arguments", 1)
         return
 
-    manager = app_state.main_window.interactions
+    manager = interaction_manager
     if manager.stop("boundary", reason="toggle"):
         return
 
-    manager.mask = None
     session = BoundarySession(app_state, shell_output, manager)
 
     def add_boundary_point(payload: dict):
         _handle_double_click(app_state, shell_output, session, payload)
 
     session.callback = add_boundary_point
-    app_state.panel_double_clicked.connect(add_boundary_point)
+    manager.window.panel_double_clicked.connect(add_boundary_point)
     manager.start("boundary", session)
     shell_output.emit(
         "Boundary enabled: double-click to add points; "
@@ -135,7 +127,7 @@ def _close_boundary(
         shell_output.emit("Boundary has zero area and cannot be closed", 1)
         return
 
-    grid = app_state.panels[panel_number].grid
+    grid = session.manager.window.state.panels[panel_number].grid
     if grid is None:
         shell_output.emit("Panel has no gate-center grid", 1)
         return
@@ -148,37 +140,24 @@ def _close_boundary(
         return
 
     inclusive_radius = min(positive_gatewidths)
-    session.manager.mask = _build_mask(
+    session.mask = _build_mask(
         session.points,
         grid,
         inclusive_radius,
         signed_area,
     )
+    session.manager.masks.set("boundary", session.mask)
 
     session.closed = True
     _render(app_state, session)
     shell_output.emit("Boundary closed", 0)
-
-    # ── DEBUG: visualize boundary mask on Panel 1 ───────────────────
-    panel_state = app_state.panels[1]
-    panel_frame = app_state.main_window.panel_grid.panels[1]
-    if panel_state.plot is not None and panel_state.data is not None:
-        masked_data = np.ma.array(
-            panel_state.data,
-            mask=session.manager.mask,
-            copy=True,
-        )
-        panel_state.plot.set_array(masked_data)
-        if panel_frame.canvas is not None:
-            panel_frame.canvas.draw_idle()
-    # ── END DEBUG: visualize boundary mask on Panel 1 ───────────────
 
 
 def _render(app_state, session: BoundarySession):
     points = session.points + ([session.points[0]] if session.closed else [])
     x = [point[0] for point in points]
     y = [point[1] for point in points]
-    controller = app_state.plot_controller
+    controller = session.manager.window.plot_controller
 
     if session.overlay_id is None:
         session.overlay_id = controller.plot(
@@ -187,7 +166,6 @@ def _render(app_state, session: BoundarySession):
             color="red",
             marker="o",
             linewidth=1.5,
-            zorder=20,
         )
     else:
         controller.update(session.overlay_id, x=x, y=y)

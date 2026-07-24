@@ -1,7 +1,9 @@
 """Window-scoped lifecycle management for interactive tools."""
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Protocol
+
+from frxxv.controllers.mask_controller import MaskController
 
 
 class InteractionSession(Protocol):
@@ -15,7 +17,7 @@ class InteractionManager:
 
     def __init__(self, window):
         self.window = window
-        self.mask: Any = None
+        self.masks = MaskController(window)
         self._sessions: dict[str, InteractionSession] = {}
         window.state.scan_changed.connect(self._on_scan_changed)
 
@@ -43,5 +45,8 @@ class InteractionManager:
                 self.stop(name, reason=reason)
 
     def _on_scan_changed(self):
+        # Disconnect mask consumers before engines publish their removal masks;
+        # the incoming sweep may have a different grid shape.
+        self.stop("mask", reason="scan_changed")
         self.stop_all(scope="scan", reason="scan_changed")
-        self.mask = None
+        self.masks.clear()

@@ -25,6 +25,9 @@ class PyartFile(FileIngestible):
     def fieldAvail(self, name: str) -> bool:
         return name in self.radar.fields
 
+    def products(self) -> list[str]:
+        return sorted(self.radar.fields)
+
     def constructTimeStr(self) -> str:
         self._validate_sweep()
         start = pyart.util.datetime_from_radar(self.radar)

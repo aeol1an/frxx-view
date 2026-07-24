@@ -17,6 +17,11 @@ class FileIngestible(ABC):
         pass
 
     @abstractmethod
+    def products(self) -> list[str]:
+        """Return the product fields available in this file."""
+        pass
+
+    @abstractmethod
     def constructTimeStr(self) -> str:
         pass
 

@@ -86,6 +86,7 @@ class KeyRouter:
             field = PANEL_KEYS[key]
             idx = self.state.selected
             self.state.panels[idx].field_name = field
+            self.state.panels[idx].product_override = None
             self.state.panel_field_changed.emit(idx)
             return True
 

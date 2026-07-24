@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import shlex
-from typing import Any
+from typing import Any, Callable
 
-from frxxv.shell import boundary, nav, vals
+from frxxv.shell import boundary, mask
 
 
 class CommandParseError(ValueError):
@@ -62,7 +62,13 @@ class ShellParser:
 PARSER = ShellParser()
 
 
-def execute(app_state, shell_output: Any, raw_command: str) -> ParsedCommand | None:
+def execute(
+    app_state,
+    interaction_manager,
+    shell_output: Any,
+    raw_command: str,
+    window_executor: Callable | None = None,
+) -> ParsedCommand | None:
     """Parse and dispatch a command, returning commands owned by the window."""
     try:
         command = PARSER.parse(raw_command)
@@ -70,30 +76,35 @@ def execute(app_state, shell_output: Any, raw_command: str) -> ParsedCommand | N
         shell_output.emit(f"Could not parse command: {error}", 1)
         return None
 
-    if command.name in ("+", "-"):
-        direction = 1 if command.name == "+" else -1
-        nav.execute(app_state, shell_output, direction, *command.args)
-        return None
-
-    if command.name in ("begin", "end"):
-        nav.execute(app_state, shell_output, command.name, *command.args)
-        return None
-
-    if command.name == "n":
-        nav.execute(app_state, shell_output, "n", *command.args)
-        return None
-
-    if command.name == "vals":
-        vals.execute(app_state, shell_output, *command.args)
-        return None
-
     if command.name == "bnd":
-        boundary.execute(app_state, shell_output, *command.args)
+        boundary.execute(
+            app_state,
+            interaction_manager,
+            shell_output,
+            *command.args,
+        )
+        return None
+
+    if command.name == "mask":
+        mask.execute(
+            app_state,
+            interaction_manager,
+            shell_output,
+            *command.args,
+        )
         return None
 
     # Window lifecycle commands remain owned by DataWindow.
-    if command.name == "q":
+    if command.name in ("q", "widen", "shrink"):
         return command
+
+    if window_executor is not None and window_executor(
+        app_state,
+        interaction_manager,
+        shell_output,
+        command,
+    ):
+        return None
 
     shell_output.emit(
         f"Not an editor command: {command.text or '<empty>'}",
