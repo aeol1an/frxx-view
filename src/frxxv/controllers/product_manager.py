@@ -3,12 +3,15 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from frxxv.config import USER_CONFIG
 from frxxv.state import ProductSpec
+
+if TYPE_CHECKING:
+    from matplotlib.colors import Colormap
 
 
 _MISSING = object()
@@ -19,7 +22,7 @@ class ResolvedProduct:
     raw_field: str
     data: Any
     title: str
-    cmap: str
+    cmap: str | Colormap
     vmin: float
     vmax: float
     nticks: int

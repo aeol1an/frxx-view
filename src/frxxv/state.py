@@ -17,6 +17,8 @@ from frxxv.config import DEFAULT_LAYOUT, LAYOUTS, NUM_PANELS
 from frxxv.ingest.file_ingestible import FileIngestible
 
 if TYPE_CHECKING:
+    from matplotlib.colors import Colormap
+
     from frxxv.controllers.file_manager import FileManager
     from frxxv.ingest.case_ingest import CaseIngest
     from frxxv.windows.data_window import DataWindow
@@ -27,7 +29,7 @@ class ProductSpec:
 
     raw_field: str
     title: str
-    cmap: str
+    cmap: str | Colormap
     vmin: float
     vmax: float
     nticks: int = 5

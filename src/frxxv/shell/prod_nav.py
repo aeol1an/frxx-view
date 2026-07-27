@@ -133,7 +133,7 @@ def _set_product(app_state, interaction_manager, shell_output: Any, args):
 
 
 def _parse_custom_product(product_manager, shell_output: Any, args):
-    raw_field, title, cmap = args[:3]
+    raw_field, title, cmap_name = args[:3]
     resolved = product_manager.resolve_raw(raw_field)
     if resolved is None:
         resolved_field = raw_field
@@ -147,6 +147,10 @@ def _parse_custom_product(product_manager, shell_output: Any, args):
             "characters\n" + _PRODUCT_USAGE,
             1,
         )
+        return None
+
+    cmap = _resolve_colormap(cmap_name, shell_output)
+    if cmap is None:
         return None
 
     if len(args) == 3:
@@ -177,6 +181,22 @@ def _parse_custom_product(product_manager, shell_output: Any, args):
         nticks=nticks,
         units=units,
     )
+
+
+def _resolve_colormap(requested: str, shell_output: Any):
+    """Resolve a custom product's colormap from the live Matplotlib registry."""
+    try:
+        import cmweather  # noqa: F401
+    except ImportError:
+        pass
+
+    from matplotlib import colormaps
+
+    try:
+        return colormaps[requested]
+    except KeyError:
+        shell_output.emit(f"Colormap {requested!r} was not found", 1)
+        return None
 
 
 def _parse_limits(vmin_text, vmax_text, values, shell_output: Any):
