@@ -1,6 +1,6 @@
 """Shell commands that operate on radar moments."""
 
-from frxxv.shell.moments import dealias, doppler, nav, vals
+from frxxv.shell.moments import dealias, doppler, nav, vals, write
 
 
 def execute(app_state, interaction_manager, shell_output, command) -> bool:
@@ -47,6 +47,16 @@ def execute(app_state, interaction_manager, shell_output, command) -> bool:
 
     if command.name in dealias.COMMANDS:
         dealias.execute(
+            app_state,
+            interaction_manager,
+            shell_output,
+            command.name,
+            *command.args,
+        )
+        return True
+
+    if command.name in write.COMMANDS:
+        write.execute(
             app_state,
             interaction_manager,
             shell_output,

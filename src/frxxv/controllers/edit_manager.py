@@ -31,6 +31,39 @@ class Edits:
     def current(self) -> EditEntry:
         return self.snapshots[self.index] if self.has_current else None
 
+    def definition(self) -> dict[str, Any] | None:
+        """Return the latest variable definition at or before the cursor."""
+        if not self.has_current:
+            return None
+        return next(
+            (
+                snapshot
+                for snapshot in reversed(self.snapshots[:self.index + 1])
+                if isinstance(snapshot, dict)
+            ),
+            None,
+        )
+
+    def recreates_variable(self) -> bool:
+        """Return whether an active definition follows an explicit deletion."""
+        if not self.has_current:
+            return False
+        definition_index = next(
+            (
+                index
+                for index in range(self.index, -1, -1)
+                if isinstance(self.snapshots[index], dict)
+            ),
+            None,
+        )
+        return (
+            definition_index is not None
+            and any(
+                snapshot is None
+                for snapshot in self.snapshots[:definition_index]
+            )
+        )
+
     def append(self, snapshot: EditEntry):
         """Append after the cursor, discarding an abandoned redo branch."""
         del self.snapshots[self.index + 1:]
@@ -120,9 +153,39 @@ class EditManager:
         """Append a deletion marker for the current product and sweep."""
         self._append(product, None)
 
+    def record_deletion_all_sweeps(self, product: str):
+        """Append a deletion marker to every sweep atomically."""
+        context = self._require_context()
+        self.activate()
+        source, ingestible = context
+        edit_history = self._edit_history_for(source, ingestible.nsweeps)
+        for sweep_edits in edit_history:
+            sweep_edits.setdefault(product, Edits()).append(None)
+        self._persist(source, edit_history)
+
     def record_new_product(self, product: str, full_product: dict[str, Any]):
-        """Append a complete product definition at any history position."""
-        self._append(product, deepcopy(full_product))
+        """Append a complete variable definition with metadata fields."""
+        self._append(product, self._prepare_definition(full_product))
+
+    def record_new_product_all_sweeps(
+        self,
+        product: str,
+        full_products: list[dict[str, Any]],
+    ):
+        """Append one complete definition to every sweep atomically."""
+        context = self._require_context()
+        self.activate()
+        source, ingestible = context
+        if len(full_products) != ingestible.nsweeps:
+            raise ValueError(
+                "A full-file copy requires one definition per sweep"
+            )
+
+        edit_history = self._edit_history_for(source, ingestible.nsweeps)
+        for sweep, full_product in enumerate(full_products):
+            edits = edit_history[sweep].setdefault(product, Edits())
+            edits.append(self._prepare_definition(full_product))
+        self._persist(source, edit_history)
 
     def undo(self, product: str) -> bool:
         """Move one product history backward and persist its cursor."""
@@ -149,6 +212,14 @@ class EditManager:
         self._persist(source, edit_history)
         return True
 
+    def undo_all_sweeps(self, product: str) -> bool:
+        """Move a product's history backward once in every sweep."""
+        return self._move_all_sweeps(product, "undo")
+
+    def redo_all_sweeps(self, product: str) -> bool:
+        """Move a product's history forward once in every sweep."""
+        return self._move_all_sweeps(product, "redo")
+
     def remove_history(self, product: str) -> str | None:
         """Remove one product's complete history from the current sweep."""
         if not self._active:
@@ -169,6 +240,13 @@ class EditManager:
         del sweep_edits[stored_name]
         self._persist(source, edit_history)
         return stored_name
+
+    def clear_current_file_history(self):
+        """Remove every persisted edit for the current source file."""
+        context = self._require_context()
+        source, ingestible = context
+        empty_history = [{} for _sweep in range(ingestible.nsweeps)]
+        self._persist(source, empty_history)
 
     def history(self, product: str) -> tuple[EditEntry, ...]:
         """Return a read-only snapshot of one current-sweep edit history."""
@@ -214,14 +292,8 @@ class EditManager:
         edits = edit_history[ingestible.sweep].get(product)
         if edits is None or edits.index < 0:
             return None
-        return next(
-            (
-                deepcopy(snapshot)
-                for snapshot in reversed(edits.snapshots[:edits.index + 1])
-                if isinstance(snapshot, dict)
-            ),
-            None,
-        )
+        definition = edits.definition()
+        return None if definition is None else deepcopy(definition)
 
     def field(self, ingestible, product: str):
         """Return the latest replacement, or the original ingest field."""
@@ -247,6 +319,14 @@ class EditManager:
         edits.append(entry)
         self._persist(source, edit_history)
 
+    @staticmethod
+    def _prepare_definition(full_product: dict[str, Any]) -> dict[str, Any]:
+        definition = deepcopy(full_product)
+        definition.setdefault("attrs", {})
+        definition.setdefault("encoding", {})
+        definition.setdefault("dims", ())
+        return definition
+
     def _latest_entry(self, product: str) -> tuple[bool, EditEntry]:
         if not self._active:
             return False, None
@@ -259,6 +339,30 @@ class EditManager:
         if edits is None or not edits.has_current:
             return False, None
         return True, edits.current
+
+    def _move_all_sweeps(self, product: str, action: str) -> bool:
+        context = self._require_context()
+        self.activate()
+        source, ingestible = context
+        edit_history = self._edit_history_for(source, ingestible.nsweeps)
+        requested = product.casefold()
+        moved = False
+        for sweep_edits in edit_history:
+            stored_name = next(
+                (
+                    name
+                    for name in sweep_edits
+                    if name.casefold() == requested
+                ),
+                None,
+            )
+            if stored_name is None:
+                continue
+            edits = sweep_edits[stored_name]
+            moved = getattr(edits, action)() or moved
+        if moved:
+            self._persist(source, edit_history)
+        return moved
 
     def _current_context(self):
         case = self.window.state.case

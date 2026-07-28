@@ -65,6 +65,17 @@ class FileManager(QObject):
         self.case.load_file(index, last_sweep=last_sweep)
         self._publish_scan_change()
 
+    def reload_current(self, sweep: int = 0):
+        """Reload the current file and restore a valid sweep position."""
+        if not self.case.files:
+            return
+        self.case.load_file(self.case.current)
+        assert self.case.data is not None
+        self.case.data.firstSweep()
+        for _ in range(min(max(sweep, 0), self.case.data.nsweeps - 1)):
+            self.case.data.nextSweep()
+        self._publish_scan_change()
+
     def _publish_scan_change(self):
         if self.case.data is None:
             return

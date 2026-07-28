@@ -41,7 +41,7 @@ DEFAULT_POLL_INTERVAL_MS = 2000
 class ConfigManager():
     default_config = {
         "DEFAULT_LAYOUT": "2x2",
-        "outdir": "frxxv_out",
+        "outdir": "frxxv_output",
         "initial_products": ["DBZ", "VEL", "ZDR", "RHOHV"],
 
         "products": {

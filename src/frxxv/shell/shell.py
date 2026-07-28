@@ -106,11 +106,18 @@ def execute(
 
     if command.name in (
         "copy",
+        "copyall",
         "set",
         "del",
+        "delall",
         "undo",
+        "undoall",
         "redo",
+        "redoall",
         "edits",
+        "sedits",
+        "sweepedits",
+        "pedits",
         "rmedits",
     ):
         basic_edits.execute(

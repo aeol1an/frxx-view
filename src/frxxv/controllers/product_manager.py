@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -27,6 +27,16 @@ class ResolvedProduct:
     vmax: float
     nticks: int
     units: str
+
+
+@dataclass
+class ProductDefinition:
+    """Ingest-provided definition of a complete data variable."""
+
+    data: Any
+    attrs: dict[str, Any] = field(default_factory=dict)
+    encoding: dict[str, Any] = field(default_factory=dict)
+    dims: tuple[str, ...] = ()
 
 
 class ProductManager:
@@ -145,7 +155,7 @@ class ProductManager:
                     ingestible is not None
                     and raw_field in (ingestible.products or ())
                 ):
-                    product = ingestible.get_product(raw_field)
+                    product = asdict(ingestible.get_product(raw_field))
                 else:
                     product = {}
         product["data"] = deepcopy(effective_data)

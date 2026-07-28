@@ -6,6 +6,8 @@ from pathlib import Path
 import numpy as np
 import pyart
 
+from frxxv.controllers.product_manager import ProductDefinition
+
 
 _LIGHT_SPEED = 299_792_458.0
 
@@ -31,25 +33,215 @@ class PyartFile(FileIngestible):
         self._validate_sweep()
         return self.data.get_field(self.sweep, name)
 
-    def get_product(self, name: str):
-        product = deepcopy(self.data.fields[name])
-        product["data"] = self.get_field(name).copy()
-        return product
+    def get_product(self, name: str) -> ProductDefinition:
+        attrs = deepcopy(self.data.fields[name])
+        attrs.pop("data", None)
+        return ProductDefinition(
+            data=self.get_field(name).copy(),
+            attrs=attrs,
+        )
 
     def fieldAvail(self, name: str) -> bool:
         return name in self.data.fields
 
-    def write(self, filename: Path | str) -> None:
+    def write_full_file(
+        self,
+        filename: Path | str,
+        edit_history=None,
+    ) -> None:
+        output = deepcopy(self)
+        if edit_history is not None:
+            output._apply_edit_history(edit_history)
+        output._write_file(filename)
+
+    def write_sweeps(
+        self,
+        directory: Path | str,
+        edit_history=None,
+    ) -> tuple[Path, ...]:
+        output = deepcopy(self)
+
+        directory = Path(directory)
+        directory.mkdir(parents=True, exist_ok=True)
+        instrument_name = output.instrumentName
+        paths = []
+        for sweep in range(output.nsweeps):
+            sweep_time = output._sweep_datetime(sweep)
+            datetime_string = (
+                sweep_time.strftime("%Y%m%d_%H%M%S")
+                + f".{sweep_time.microsecond // 1000:03d}"
+            )
+            path = directory / (
+                f"cfrad.{instrument_name}.{datetime_string}.nc"
+            )
+            sweep_radar = output.data.extract_sweeps([sweep])
+            if edit_history is not None:
+                output._apply_sweep_edits(
+                    sweep_radar,
+                    edit_history[sweep],
+                )
+            output._rebase_time(sweep_radar, sweep_time)
+            pyart.io.write_cfradial(str(path), sweep_radar)
+            paths.append(path)
+        return tuple(paths)
+
+    def _write_file(self, filename: Path | str) -> None:
         pyart.io.write_cfradial(str(filename), self.data)
 
-    def constructTimeStr(self) -> str:
-        self._validate_sweep()
+    def _apply_edit_history(self, edit_history) -> None:
+        products = {
+            product
+            for sweep_edits in edit_history
+            for product in sweep_edits
+        }
+        recreations = {
+            product
+            for product in products
+            if product in self.data.fields
+            and bool(edit_history)
+            and all(
+                (edits := sweep_edits.get(product)) is not None
+                and edits.recreates_variable()
+                for sweep_edits in edit_history
+            )
+        }
+        conflicts = sorted(
+            product
+            for product in products
+            if product in self.data.fields
+            and product not in recreations
+            and not self._all_sweeps_deleted(product, edit_history)
+            and any(
+                edits.has_current and edits.definition() is not None
+                for sweep_edits in edit_history
+                if (edits := sweep_edits.get(product)) is not None
+            )
+        )
+        if conflicts:
+            names = ", ".join(repr(product) for product in conflicts)
+            raise ValueError(
+                f"New products are attempting to overwrite existing fields: "
+                f"{names}. Explicitly delete the conflicting existing fields "
+                "or remove/rename the new products before writing."
+            )
+
+        for product in products:
+            active = [
+                (sweep, edits)
+                for sweep, sweep_edits in enumerate(edit_history)
+                if (edits := sweep_edits.get(product)) is not None
+                and edits.has_current
+            ]
+            if not active:
+                continue
+
+            if self._all_sweeps_deleted(product, edit_history):
+                self.data.fields.pop(product, None)
+                continue
+
+            if product in recreations:
+                self.data.fields.pop(product)
+
+            definitions = [
+                definition
+                for _sweep, edits in active
+                if (definition := edits.definition()) is not None
+            ]
+            if product not in self.data.fields:
+                if not definitions:
+                    raise ValueError(
+                        f"Cannot write new product {product!r} without a "
+                        "variable definition"
+                    )
+                self._create_field(product, definitions[-1])
+
+            for sweep, edits in active:
+                current = edits.current
+                if current is None:
+                    self._mask_sweep(product, sweep)
+                    continue
+                replacement = (
+                    current["data"] if isinstance(current, dict) else current
+                )
+                self.data.fields[product]["data"][
+                    self.data.get_slice(sweep)
+                ] = replacement
+
+    def _create_field(self, product: str, definition) -> None:
+        attrs = deepcopy(definition.get("attrs", {}))
+        source = np.asanyarray(definition["data"])
+        data = np.ma.masked_all(
+            (self.data.nrays, self.data.ngates),
+            dtype=source.dtype,
+        )
+        if "_FillValue" in attrs:
+            data.set_fill_value(attrs["_FillValue"])
+        attrs["data"] = data
+        self.data.fields[product] = attrs
+
+    @staticmethod
+    def _apply_sweep_edits(radar, sweep_edits) -> None:
+        for product, edits in sweep_edits.items():
+            if not edits.has_current:
+                continue
+
+            current = edits.current
+            if current is None:
+                radar.fields.pop(product, None)
+                continue
+
+            definition = edits.definition()
+            replacement = (
+                current["data"] if isinstance(current, dict) else current
+            )
+            if definition is not None:
+                field = deepcopy(definition.get("attrs", {}))
+                field["data"] = deepcopy(replacement)
+                radar.fields[product] = field
+                continue
+
+            if product not in radar.fields:
+                raise ValueError(
+                    f"Cannot modify missing product {product!r} without a "
+                    "variable definition"
+                )
+            radar.fields[product]["data"] = deepcopy(replacement)
+
+    @staticmethod
+    def _all_sweeps_deleted(product: str, edit_history) -> bool:
+        return bool(edit_history) and all(
+            (edits := sweep_edits.get(product)) is not None
+            and edits.has_current
+            and edits.current is None
+            for sweep_edits in edit_history
+        )
+
+    def _mask_sweep(self, product: str, sweep: int) -> None:
+        data = np.ma.array(self.data.fields[product]["data"], copy=False)
+        data[self.data.get_slice(sweep)] = np.ma.masked
+        self.data.fields[product]["data"] = data
+
+    def _sweep_datetime(self, sweep: int):
         start = pyart.util.datetime_from_radar(self.data)
-        ray = int(self.data.sweep_start_ray_index["data"][self.sweep])
+        ray = int(self.data.sweep_start_ray_index["data"][sweep])
         elapsed = float(
             self.data.time["data"][ray] - self.data.time["data"][0]
         )
-        sweep_time = start + timedelta(seconds=elapsed)
+        return start + timedelta(seconds=elapsed)
+
+    @staticmethod
+    def _rebase_time(radar, start) -> None:
+        first_time = radar.time["data"][0]
+        radar.time["data"] = radar.time["data"] - first_time
+        radar.time["units"] = (
+            "seconds since "
+            + start.strftime("%Y-%m-%dT%H:%M:%S")
+            + f".{start.microsecond:06d}Z"
+        )
+
+    def constructTimeStr(self) -> str:
+        self._validate_sweep()
+        sweep_time = self._sweep_datetime(self.sweep)
         return sweep_time.strftime("%m/%d/%Y %H:%M:%S Z")
 
     @property

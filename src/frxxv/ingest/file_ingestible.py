@@ -1,8 +1,14 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from numpy.typing import NDArray
+
+if TYPE_CHECKING:
+    from frxxv.controllers.product_manager import ProductDefinition
+
 
 class FileIngestible(ABC):
     sweep: int = 0
@@ -19,7 +25,7 @@ class FileIngestible(ABC):
         pass
 
     @abstractmethod
-    def get_product(self, name: str) -> dict[str, Any]:
+    def get_product(self, name: str) -> ProductDefinition:
         """Return a complete product definition, including its data."""
         pass
 
@@ -28,8 +34,17 @@ class FileIngestible(ABC):
         pass
 
     @abstractmethod
-    def write(self, filename: Path | str) -> None:
-        """Write this ingestible's complete data to a file."""
+    def write_full_file(self, filename: Path | str, edit_history=None) -> None:
+        """Write the complete ingestible as one file."""
+        pass
+
+    @abstractmethod
+    def write_sweeps(
+        self,
+        directory: Path | str,
+        edit_history=None,
+    ) -> tuple[Path, ...]:
+        """Write one file per sweep and return the output paths."""
         pass
 
     @abstractmethod
