@@ -53,7 +53,7 @@ def ppi_factory(
     panel_state.plot     = mesh
     panel_state.cb       = cb
     panel_state.grid     = grid
-    panel_state.data     = resolved.data
+    panel_state.displayed_data = resolved.data
     panel_state.xlim     = tuple(ax.get_xlim())
     panel_state.ylim     = tuple(ax.get_ylim())
     panel_state.updater  = updatePPIAxesText

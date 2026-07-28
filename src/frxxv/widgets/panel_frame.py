@@ -165,7 +165,7 @@ class PanelFrame(QFrame):
             return
 
         panel_state = self.state
-        if panel_state.grid is None or panel_state.data is None:
+        if panel_state.grid is None or panel_state.displayed_data is None:
             return
         if self.appstate.scan_data is None:
             return
@@ -222,7 +222,7 @@ class PanelFrame(QFrame):
             "r_center": float(scan_data.rkm[i_r]),
             "x_center": float(xx[i_theta, i_r]),
             "y_center": float(yy[i_theta, i_r]),
-            "value": panel_state.data[i_theta, i_r],
+            "value": panel_state.displayed_data[i_theta, i_r],
             "theta_gatewidth": theta_gatewidth,
             "button": button,
             "key": event.key,

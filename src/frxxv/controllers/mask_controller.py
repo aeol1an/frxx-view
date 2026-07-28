@@ -81,5 +81,5 @@ class MaskController(QObject):
             self.changed.emit(self._mask.copy())
 
     def _data_shape(self) -> tuple[int, int] | None:
-        data = self.window.state.panels[0].data
+        data = self.window.state.panels[0].displayed_data
         return None if data is None else data.shape

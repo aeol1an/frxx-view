@@ -28,13 +28,13 @@ class MaskSession:
 
     def _apply_panel(self, panel_index: int, combined_mask):
         panel_state = self.manager.window.state.panels[panel_index]
-        if panel_state.plot is None or panel_state.data is None:
+        if panel_state.plot is None or panel_state.displayed_data is None:
             return
 
         hidden = np.asarray(combined_mask) == 0
-        original_hidden = np.ma.getmaskarray(panel_state.data)
+        original_hidden = np.ma.getmaskarray(panel_state.displayed_data)
         display_data = np.ma.array(
-            np.ma.getdata(panel_state.data),
+            np.ma.getdata(panel_state.displayed_data),
             mask=np.logical_or(original_hidden, hidden),
             copy=True,
         )
@@ -56,9 +56,9 @@ class MaskSession:
         for panel_index, panel_state in enumerate(
             self.manager.window.state.panels
         ):
-            if panel_state.plot is None or panel_state.data is None:
+            if panel_state.plot is None or panel_state.displayed_data is None:
                 continue
-            panel_state.plot.set_array(panel_state.data)
+            panel_state.plot.set_array(panel_state.displayed_data)
             self._draw_panel(panel_index)
 
         message = (

@@ -49,7 +49,7 @@ class PanelState:
     plot: Any = None          # primary artist (QuadMesh, etc.)
     cb: Any   = None          # Colorbar (or None)
     grid: Optional[Tuple[NDArray, NDArray]] = None
-    data: Optional[NDArray] = None
+    displayed_data: Optional[NDArray] = None
     xlim: Optional[Tuple[float, float]] = None
     ylim: Optional[Tuple[float, float]] = None
     updater: Optional[Callable] = None
