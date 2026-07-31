@@ -115,6 +115,41 @@ class RayTimeSession:
         self.shell_output.emit("Double-click ray times disabled", 0)
 
 
+@dataclass
+class CenterSession:
+    app_state: Any
+    shell_output: Any
+    manager: Any = None
+    callback: Any = None
+    scope: str = "window"
+
+    def center_plot(self, payload: dict):
+        """Recenter from panel one while preserving its current zoom."""
+        panel = self.manager.window.panel_grid.panels[0]
+        ax = panel.state.ax
+        if ax is None or panel.canvas is None:
+            self.shell_output.emit("Panel 1 has not finished plotting", 1)
+            return
+
+        x_center = float(payload["x_center"])
+        y_center = float(payload["y_center"])
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        half_width = (xlim[1] - xlim[0]) / 2.0
+        half_height = (ylim[1] - ylim[0]) / 2.0
+
+        ax.set_xlim(x_center - half_width, x_center + half_width)
+        ax.set_ylim(y_center - half_height, y_center + half_height)
+        panel.canvas.draw_idle()
+
+    def close(self, reason: str):
+        try:
+            self.manager.window.panel_double_clicked.disconnect(self.callback)
+        except (RuntimeError, TypeError):
+            pass
+        self.shell_output.emit("Double-click centering disabled", 0)
+
+
 def execute(app_state, interaction_manager, shell_output: Any, *args: str):
     """Toggle readable moment double-click output for one data window."""
     if args:
@@ -171,6 +206,27 @@ def execute_raytime(
     interaction_manager.window.panel_double_clicked.connect(session.callback)
     interaction_manager.start("raytime", session)
     shell_output.emit("Double-click ray times enabled", 0)
+
+
+def execute_center(
+    app_state,
+    interaction_manager,
+    shell_output: Any,
+    *args: str,
+):
+    """Toggle recentering the plots on the double-clicked gate."""
+    if args:
+        shell_output.emit(":center does not accept arguments", 1)
+        return
+
+    if interaction_manager.stop("center", reason="toggle"):
+        return
+
+    session = CenterSession(app_state, shell_output, interaction_manager)
+    session.callback = session.center_plot
+    interaction_manager.window.panel_double_clicked.connect(session.callback)
+    interaction_manager.start("center", session)
+    shell_output.emit("Double-click centering enabled", 0)
 
 
 def coordinates_at_offset(

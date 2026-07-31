@@ -1,6 +1,6 @@
 """Shell commands that operate on radar moments."""
 
-from frxxv.shell.moments import dealias, doppler, nav, vals, write
+from frxxv.shell.moments import dealias, doppler, nav, savefig, vals, write
 
 
 def execute(app_state, interaction_manager, shell_output, command) -> bool:
@@ -53,6 +53,15 @@ def execute(app_state, interaction_manager, shell_output, command) -> bool:
         )
         return True
 
+    if command.name == "center":
+        vals.execute_center(
+            app_state,
+            interaction_manager,
+            shell_output,
+            *command.args,
+        )
+        return True
+
     if command.name in doppler.COMMANDS:
         doppler.execute(
             app_state,
@@ -79,6 +88,15 @@ def execute(app_state, interaction_manager, shell_output, command) -> bool:
             interaction_manager,
             shell_output,
             command.name,
+            *command.args,
+        )
+        return True
+
+    if command.name == "savefig":
+        savefig.execute(
+            app_state,
+            interaction_manager,
+            shell_output,
             *command.args,
         )
         return True

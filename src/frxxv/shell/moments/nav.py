@@ -79,8 +79,16 @@ def _go_to_boundary(app_state, shell_output: Any, boundary: str, args):
 
 
 def _go_to_file(app_state, shell_output: Any, args):
-    if len(args) != 1:
-        shell_output.emit(":n requires one file number", 1)
+    if len(args) > 1:
+        shell_output.emit(":n accepts at most one file number", 1)
+        return
+
+    case = app_state.case
+    if not args:
+        if not case.files:
+            shell_output.emit("The case has no files", 1)
+            return
+        shell_output.emit(f"File number: {case.current}", 0)
         return
 
     try:
@@ -89,7 +97,6 @@ def _go_to_file(app_state, shell_output: Any, args):
         shell_output.emit(":n file number must be an integer", 1)
         return
 
-    case = app_state.case
     if file_number < 0 or file_number >= len(case.files):
         shell_output.emit(
             f"File number {file_number} is out of range "
