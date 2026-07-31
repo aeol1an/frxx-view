@@ -35,6 +35,24 @@ def execute(app_state, interaction_manager, shell_output, command) -> bool:
         )
         return True
 
+    if command.name == "coords":
+        vals.execute_coords(
+            app_state,
+            interaction_manager,
+            shell_output,
+            *command.args,
+        )
+        return True
+
+    if command.name == "raytime":
+        vals.execute_raytime(
+            app_state,
+            interaction_manager,
+            shell_output,
+            *command.args,
+        )
+        return True
+
     if command.name in doppler.COMMANDS:
         doppler.execute(
             app_state,

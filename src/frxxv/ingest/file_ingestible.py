@@ -48,12 +48,25 @@ class FileIngestible(ABC):
         pass
 
     @abstractmethod
-    def constructTimeStr(self) -> str:
+    def constructTimeStr(self, ray_index: int = 0) -> str:
+        """Return the current sweep's time at a sweep-local ray index."""
         pass
 
     @property
     @abstractmethod
     def instrumentName(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def latitude(self) -> float:
+        """Radar origin latitude in degrees north."""
+        pass
+
+    @property
+    @abstractmethod
+    def longitude(self) -> float:
+        """Radar origin longitude in degrees east."""
         pass
     
     @property

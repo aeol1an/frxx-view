@@ -80,7 +80,6 @@ class PyartFile(FileIngestible):
                     sweep_radar,
                     edit_history[sweep],
                 )
-            output._rebase_time(sweep_radar, sweep_time)
             pyart.io.write_cfradial(str(path), sweep_radar)
             paths.append(path)
         return tuple(paths)
@@ -221,32 +220,47 @@ class PyartFile(FileIngestible):
         data[self.data.get_slice(sweep)] = np.ma.masked
         self.data.fields[product]["data"] = data
 
-    def _sweep_datetime(self, sweep: int):
+    def _sweep_datetime(self, sweep: int, ray_index: int = 0):
         start = pyart.util.datetime_from_radar(self.data)
-        ray = int(self.data.sweep_start_ray_index["data"][sweep])
-        elapsed = float(
-            self.data.time["data"][ray] - self.data.time["data"][0]
+        sweep_start_ray = int(
+            self.data.sweep_start_ray_index["data"][sweep]
         )
-        return start + timedelta(seconds=elapsed)
+        sweep_end_ray = int(self.data.sweep_end_ray_index["data"][sweep])
+        ray_count = sweep_end_ray - sweep_start_ray + 1
+        if not 0 <= ray_index < ray_count:
+            raise IndexError(
+                f"Ray index {ray_index} is outside sweep {sweep}; "
+                f"valid indices are 0 through {ray_count - 1}"
+            )
 
-    @staticmethod
-    def _rebase_time(radar, start) -> None:
-        first_time = radar.time["data"][0]
-        radar.time["data"] = radar.time["data"] - first_time
-        radar.time["units"] = (
-            "seconds since "
-            + start.strftime("%Y-%m-%dT%H:%M:%S")
-            + f".{start.microsecond:06d}Z"
+        sweep_elapsed = float(
+            self.data.time["data"][sweep_start_ray]
+            - self.data.time["data"][0]
         )
+        sweep_start = start + timedelta(seconds=sweep_elapsed)
+        ray = sweep_start_ray + ray_index
+        ray_elapsed = float(
+            self.data.time["data"][ray]
+            - self.data.time["data"][sweep_start_ray]
+        )
+        return sweep_start + timedelta(seconds=ray_elapsed)
 
-    def constructTimeStr(self) -> str:
+    def constructTimeStr(self, ray_index: int = 0) -> str:
         self._validate_sweep()
-        sweep_time = self._sweep_datetime(self.sweep)
-        return sweep_time.strftime("%m/%d/%Y %H:%M:%S Z")
+        ray_time = self._sweep_datetime(self.sweep, ray_index)
+        return ray_time.strftime("%m/%d/%Y %H:%M:%S Z")
 
     @property
     def instrumentName(self) -> str:
         return str(self.data.metadata.get("instrument_name", ""))
+
+    @property
+    def latitude(self) -> float:
+        return float(np.asanyarray(self.data.latitude["data"]).reshape(-1)[0])
+
+    @property
+    def longitude(self) -> float:
+        return float(np.asanyarray(self.data.longitude["data"]).reshape(-1)[0])
 
     @property
     def rkm(self):
