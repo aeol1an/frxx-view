@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
 from frxx.viz import plotFigAsImg
+from frxx.viz import polarGridPlotting
 from frxx.viz.plotMoments import updatePPIAxesText
 from frxxv.config import LAYOUTS, USER_CONFIG
 from frxxv.ingest.case_types.directory import Directory
@@ -15,6 +17,9 @@ PANEL_WIDTH_INCHES = 2.5
 OUTPUT_DPI = 300
 MARGIN_PX = 1
 TITLE_HEIGHT_INCHES = 0.22
+GRID_LINE_WIDTH = 0.75
+DEFAULT_AZIMUTH_INTERVAL = 60.0
+DEFAULT_RANGE_INTERVAL = 3.0
 
 
 def execute(
@@ -24,8 +29,11 @@ def execute(
     *args: str,
 ):
     """Render the visible panels without modifying their live figures."""
-    if len(args) > 1:
-        shell_output.emit(":savefig accepts at most one filename", 1)
+    if len(args) > 3:
+        shell_output.emit(
+            ":savefig accepts a filename, azimuth interval, and range interval",
+            1,
+        )
         return
 
     case = app_state.case
@@ -47,6 +55,8 @@ def execute(
         from matplotlib.backends.backend_agg import FigureCanvasAgg
 
         filename = _output_filename(args[0] if args else case.current_file.name)
+        azimuth_interval = _azimuth_interval(args[1] if len(args) > 1 else None)
+        range_interval = _range_interval(args[2] if len(args) > 2 else None)
         filename = _append_sweep_number(filename, app_state.scan_data)
         output_directory = (
             case.directory / USER_CONFIG.user_config["outdir"] / "img"
@@ -71,6 +81,18 @@ def execute(
             FigureCanvasAgg(fig)
             fig.set_size_inches(PANEL_WIDTH_INCHES, panel_height, forward=True)
             fig.set_dpi(OUTPUT_DPI)
+            if azimuth_interval is not None:
+                polarGridPlotting.azimuthSpiderweb(
+                    ax,
+                    azint=azimuth_interval,
+                    lw=GRID_LINE_WIDTH,
+                )
+            if range_interval is not None:
+                polarGridPlotting.rangeRings(
+                    ax,
+                    rint=range_interval,
+                    lw=GRID_LINE_WIDTH,
+                )
             updatePPIAxesText(
                 fig,
                 ax,
@@ -124,6 +146,40 @@ def _output_filename(name: str) -> str:
     if Path(name).name != name:
         raise ValueError(":savefig name must not contain a directory")
     return name if name.lower().endswith(".png") else f"{name}.png"
+
+
+def _azimuth_interval(value: str | None) -> float | None:
+    """Return a valid azimuth interval, or None when the grid is disabled."""
+    interval = _interval(value, DEFAULT_AZIMUTH_INTERVAL, "azimuth")
+    if interval is None:
+        return None
+
+    decimal_interval = Decimal(value) if value is not None else Decimal("60")
+    if decimal_interval.as_tuple().exponent < -2:
+        raise ValueError("Azimuth interval may have at most two decimal places")
+    if Decimal("360") % decimal_interval != 0:
+        raise ValueError("Azimuth interval must divide evenly into 360")
+    return interval
+
+
+def _range_interval(value: str | None) -> float | None:
+    """Return a valid range-ring interval, or None when the grid is disabled."""
+    return _interval(value, DEFAULT_RANGE_INTERVAL, "range")
+
+
+def _interval(value: str | None, default: float, name: str) -> float | None:
+    if value is None:
+        return default
+    if value == "None":
+        return None
+    try:
+        interval = Decimal(value)
+    except InvalidOperation as error:
+        message = f"{name.capitalize()} interval must be a number or None"
+        raise ValueError(message) from error
+    if not interval.is_finite() or interval <= 0:
+        raise ValueError(f"{name.capitalize()} interval must be greater than zero")
+    return float(interval)
 
 
 def _append_sweep_number(filename: str, ingestible) -> str:
