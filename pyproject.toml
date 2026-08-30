@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["meson-python", "pybind11"]
+build-backend = "mesonpy"
 
 [project]
 name = "frxx-view"
-version = "0.1.1"
+version = "0.1.2"
 description = "Weather radar visualization GUI for (but not limited to) frxx."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -21,15 +21,13 @@ classifiers = [
 dependencies = [
     "frxx",
     "setproctitle",
-    "PySide6"
+    "PySide6",
+    "pyobjc-framework-Cocoa; sys_platform == 'darwin'",
 ]
 
 [project.scripts]
 frxxv = "frxxv.app:main"
 frxx-view = "frxxv.app:main"
-
-[tool.setuptools.data-files]
-"assets" = ["assets/frxx_icon.png"]
 
 [project.urls]
 "Homepage" = "https://github.com/aeol1an/frxx-view"
