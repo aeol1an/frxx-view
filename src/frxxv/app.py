@@ -8,6 +8,7 @@ from shutil import copyfile
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
 
+from frxxv import pcolormesh
 from frxxv.args import parse_args
 from frxxv.state import AppState
 
@@ -15,6 +16,8 @@ from frxx.utils.pathUtils import getPlatform
 
 
 def main(argv=None):
+    pcolormesh.install()
+
     args = parse_args(argv)
     starting_directory = args.directory.expanduser().resolve()
 
