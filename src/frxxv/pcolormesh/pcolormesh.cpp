@@ -42,6 +42,10 @@ class WorkerPool {
 	WorkerPool(const WorkerPool &) = delete;
 	WorkerPool& operator=(const WorkerPool&) = delete;
 
+	std::size_t size() const {
+		return workers.size();
+	}
+
 	template <class Function>
 	void parallel_for(std::size_t count, Function function) {
 		if (count == 0) {
@@ -112,6 +116,7 @@ WorkerPool& quad_worker_pool() {
 	// hardware_concurrency() is only a hint and may return zero. Use half of
 	// the reported logical CPUs, but always keep at least one worker.
 	static WorkerPool pool(
+		//4);
 		std::max(1u, std::thread::hardware_concurrency() / 2));
 	return pool;
 }
@@ -326,21 +331,38 @@ bool render_fast(py::buffer renderer_buffer, const py::args& args) {
 		return false;
 	}
 
-	py::gil_scoped_release release;
-	for (const ProcessedQuad& quad : processed) {
-		if (!quad.visible) {
-			continue;
-		}
-		for (int y = quad.y0; y < quad.y1; ++y) {
-			for (int x = quad.x0; x < quad.x1; ++x) {
-				if (!contains(quad.vertices, Point{x + 0.5, y + 0.5})) {
+	// Split the framebuffer into disjoint horizontal bands. Each worker visits
+	// quads in draw order, but writes only to rows owned by its band, preserving
+	// overdraw semantics without concurrent writes to the same pixel.
+	const int raster_height = std::max(0, clip_y1 - clip_y0);
+	const std::size_t band_count = std::min<std::size_t>(
+		static_cast<std::size_t>(raster_height), quad_worker_pool().size());
+	{
+		py::gil_scoped_release release;
+		quad_worker_pool().parallel_for(band_count, [&](std::size_t band) {
+			const int band_y0 = clip_y0 + raster_height * static_cast<int>(band) /
+				static_cast<int>(band_count);
+			const int band_y1 = clip_y0 + raster_height * static_cast<int>(band + 1) /
+				static_cast<int>(band_count);
+
+			for (const ProcessedQuad& quad : processed) {
+				if (!quad.visible) {
 					continue;
 				}
-				const int buffer_row = image_height - 1 - y;
-				auto* pixel = pixels + buffer_row * buffer.strides[0] + x * buffer.strides[1];
-				std::copy(quad.color.begin(), quad.color.end(), pixel);
+				const int y0 = std::max(quad.y0, band_y0);
+				const int y1 = std::min(quad.y1, band_y1);
+				for (int y = y0; y < y1; ++y) {
+					for (int x = quad.x0; x < quad.x1; ++x) {
+						if (!contains(quad.vertices, Point{x + 0.5, y + 0.5})) {
+							continue;
+						}
+						const int buffer_row = image_height - 1 - y;
+						auto* pixel = pixels + buffer_row * buffer.strides[0] + x * buffer.strides[1];
+						std::copy(quad.color.begin(), quad.color.end(), pixel);
+					}
+				}
 			}
-		}
+		});
 	}
 	return true;
 }
