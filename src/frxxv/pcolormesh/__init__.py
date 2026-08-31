@@ -4,9 +4,8 @@ from functools import partial
 from typing import Any
 
 from ._pcolormesh import draw_quad_mesh as _draw_quad_mesh
-from ._pcolormesh import hello_world
 
-__all__ = ["hello_world", "install", "is_installed", "uninstall", "wrap_renderer"]
+__all__ = ["install", "is_installed", "uninstall", "wrap_renderer"]
 
 _original_update_methods = None
 _installed = False
