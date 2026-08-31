@@ -1,5 +1,3 @@
-threads_dep = dependency('threads')
-
 py.install_sources(
   '__init__.py',
   '_pcolormesh.pyi',

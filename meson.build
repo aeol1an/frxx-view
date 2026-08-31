@@ -11,5 +11,6 @@ project(
 # scheme. Native targets can reuse py and pybind11_dep from subdirectories.
 py = import('python').find_installation(pure: false)
 pybind11_dep = dependency('pybind11')
+threads_dep = dependency('threads')
 
 subdir('src')
