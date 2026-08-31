@@ -234,6 +234,10 @@ class PanelFrame(QFrame):
 
     def set_canvas(self, new_canvas: FigureCanvasQTAgg):
         """Replace the current canvas (full replot path)."""
+        # Give the replacement a parent immediately.  In particular on Windows,
+        # a parentless QWidget is treated as a top-level window.
+        new_canvas.setParent(self)
+
         if self.canvas is not None:
             self.appstate.plot_controller.unregister_panel(self.index)
             self.lims.unregister_axes(self)
@@ -253,15 +257,13 @@ class PanelFrame(QFrame):
                 self._double_click_callback = None
 
             if self.toolbar is not None:
-                self.toolbar.close()
-                self.toolbar.setParent(None)
+                self.toolbar.hide()
                 self.toolbar.deleteLater()
                 self.toolbar = None
 
             self.canvas.removeEventFilter(self)
             self._inner_layout.removeWidget(self.canvas)
-            self.canvas.close()
-            self.canvas.setParent(None)
+            self.canvas.hide()
             self.canvas.deleteLater()
 
         self.canvas = new_canvas

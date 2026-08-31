@@ -71,9 +71,9 @@ class DataWindow(QMainWindow):
 
         # Wire file navigation into the key router
         self.key_router.register_global(
-            ACTION_PREV_FILE, lambda: self.file_manager.navigate(-1))
+            ACTION_PREV_FILE, lambda: self._navigate(-1))
         self.key_router.register_global(
-            ACTION_NEXT_FILE, lambda: self.file_manager.navigate(1))
+            ACTION_NEXT_FILE, lambda: self._navigate(1))
 
         # ── UI ──────────────────────────────────────────────────────
         self._build_menu_bar()
@@ -469,6 +469,17 @@ class DataWindow(QMainWindow):
         self.shell.begin_command()
 
     # ── Key routing ─────────────────────────────────────────────────
+
+    def _navigate(self, direction: int):
+        """Navigate one sweep and report a non-wrapping case boundary."""
+        if not self.file_manager.navigate(direction):
+            return
+
+        boundary = "end" if direction > 0 else "beginning"
+        self.shell_output.emit(
+            f"Navigation halted at the {boundary} of the case",
+            CommandShell.STDERR,
+        )
 
     def keyPressEvent(self, event: QKeyEvent):
         if self.shell is not None and self.shell.input.hasFocus():
