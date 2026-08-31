@@ -2,7 +2,7 @@ python_sources = files(
     '__init__.py',
     '__main__.py',
     'app.py',
-    'args.py'
+    'args.py',
     'config.py',
     'main.py',
     'state.py'
