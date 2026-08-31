@@ -405,7 +405,7 @@ py::object draw_quad_mesh(py::object fallback, py::args args) {
 	return fallback(*args);
 }
 
-PYBIND11_MODULE(_pcolormesh, module) {
+PYBIND11_MODULE(pcolormesh, module) {
 	module.doc() = "Accelerated pcolormesh helpers.";
 	module.def("draw_quad_mesh", &draw_quad_mesh);
 }

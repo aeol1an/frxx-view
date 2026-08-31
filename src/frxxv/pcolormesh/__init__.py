@@ -3,9 +3,7 @@
 from functools import partial
 from typing import Any
 
-from ._pcolormesh import draw_quad_mesh as _draw_quad_mesh
-
-__all__ = ["install", "is_installed", "uninstall", "wrap_renderer"]
+from .pcolormesh import draw_quad_mesh as _draw_quad_mesh
 
 _original_update_methods = None
 _installed = False
@@ -32,9 +30,10 @@ def install() -> None:
 
     _original_update_methods = RendererAgg._update_methods
 
-    def update_methods(renderer):
-        _original_update_methods(renderer)
-        wrap_renderer(renderer)
+    def update_methods(self: RendererAgg):
+        assert _original_update_methods is not None
+        _original_update_methods(self)
+        wrap_renderer(self)
 
     RendererAgg._update_methods = update_methods
     _installed = True
@@ -52,6 +51,7 @@ def uninstall() -> None:
 
     from matplotlib.backends.backend_agg import RendererAgg
 
+    assert _original_update_methods is not None
     RendererAgg._update_methods = _original_update_methods
     _original_update_methods = None
     _installed = False

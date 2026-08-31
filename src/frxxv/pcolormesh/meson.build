@@ -1,12 +1,12 @@
 py.install_sources(
   '__init__.py',
-  '_pcolormesh.pyi',
+  'pcolormesh.pyi',
   subdir: 'frxxv/pcolormesh',
   install_tag: 'runtime'
 )
 
 py.extension_module(
-  '_pcolormesh',
+  'pcolormesh',
   'pcolormesh.cpp',
   dependencies: [pybind11_dep, threads_dep],
   subdir: 'frxxv/pcolormesh',
