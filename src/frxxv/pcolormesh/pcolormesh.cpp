@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <queue>
@@ -133,7 +134,6 @@ struct ProcessedQuad {
 	int x1 = 0;
 	int y0 = 0;
 	int y1 = 0;
-	bool visible = false;
 };
 
 double cross(const Point& a, const Point& b, const Point& p) {
@@ -141,12 +141,28 @@ double cross(const Point& a, const Point& b, const Point& p) {
 }
 
 bool is_convex(const std::array<Point, 4>& quad) {
+	double max_edge_length_squared = 0.0;
+	for (std::size_t i = 0; i < quad.size(); ++i) {
+		const Point& start = quad[i];
+		const Point& end = quad[(i + 1) % quad.size()];
+		const double dx = end.x - start.x;
+		const double dy = end.y - start.y;
+		max_edge_length_squared = std::max(
+			max_edge_length_squared, dx * dx + dy * dy);
+	}
+
+	// Cross products have units of length squared, so scale their tolerance by
+	// the longest edge squared. Coordinates commonly originate as float32 even
+	// though Matplotlib supplies doubles here; allow a few float ULPs for corner
+	// interpolation and affine transformation noise.
+	const double tolerance = 8.0 * std::numeric_limits<float>::epsilon() *
+		max_edge_length_squared;
 	bool positive = false;
 	bool negative = false;
 	for (std::size_t i = 0; i < quad.size(); ++i) {
 		const double value = cross(quad[i], quad[(i + 1) % 4], quad[(i + 2) % 4]);
-		positive |= value > 1e-12;
-		negative |= value < -1e-12;
+		positive |= value > tolerance;
+		negative |= value < -tolerance;
 	}
 	return !(positive && negative);
 }
@@ -275,56 +291,68 @@ bool render_fast(py::buffer renderer_buffer, const py::args& args) {
 	auto* pixels = static_cast<std::uint8_t*>(buffer.ptr);
 
 	const std::size_t quad_count = mesh_width * mesh_height;
-	std::vector<ProcessedQuad> processed(quad_count);
+	const std::size_t preprocessing_job_count = std::min(
+		quad_count, quad_worker_pool().size());
+	std::vector<std::vector<ProcessedQuad>> visible_by_job(preprocessing_job_count);
 	std::atomic<bool> supported = true;
 
 	// The pool is process-wide and its threads persist across every draw.
-	// Workers only prepare disjoint ProcessedQuad entries; framebuffer writes
-	// remain serial below.
+	// Each worker builds a compact list for one contiguous input range. Merging
+	// those lists in job order below preserves the original quad draw order.
 	{
 		py::gil_scoped_release release;
-		quad_worker_pool().parallel_for(quad_count, [&](std::size_t index) {
-			const std::size_t row = index / mesh_width;
-			const std::size_t column = index % mesh_width;
-			ProcessedQuad& result = processed[index];
-			result.vertices = {
-				transform(row, column),
-				transform(row + 1, column),
-				transform(row + 1, column + 1),
-				transform(row, column + 1),
-			};
+		quad_worker_pool().parallel_for(preprocessing_job_count, [&](std::size_t job) {
+			const std::size_t begin = quad_count * job / preprocessing_job_count;
+			const std::size_t end = quad_count * (job + 1) / preprocessing_job_count;
+			auto& visible = visible_by_job[job];
 
-			for (const Point& point : result.vertices) {
-				if (!std::isfinite(point.x) || !std::isfinite(point.y)) {
+			for (std::size_t index = begin; index < end; ++index) {
+				const double* color = colors + (index % color_count) * 4;
+				if (color[3] == 0.0) {
+					continue;
+				}
+
+				const std::size_t row = index / mesh_width;
+				const std::size_t column = index % mesh_width;
+				ProcessedQuad result;
+				result.vertices = {
+					transform(row, column),
+					transform(row + 1, column),
+					transform(row + 1, column + 1),
+					transform(row, column + 1),
+				};
+
+				for (const Point& point : result.vertices) {
+					if (!std::isfinite(point.x) || !std::isfinite(point.y)) {
+						supported.store(false, std::memory_order_relaxed);
+						return;
+					}
+				}
+				if (!is_convex(result.vertices)) {
 					supported.store(false, std::memory_order_relaxed);
 					return;
 				}
-			}
-			if (!is_convex(result.vertices)) {
-				supported.store(false, std::memory_order_relaxed);
-				return;
-			}
 
-			const double* color = colors + (index % color_count) * 4;
-			if (color[3] == 0.0) {
-				return;
-			}
-			result.color = {
-				color_component(color[0]), color_component(color[1]),
-				color_component(color[2]), 255,
-			};
+				const auto [min_x, max_x] = std::minmax_element(
+					result.vertices.begin(), result.vertices.end(),
+					[](const Point& a, const Point& b) { return a.x < b.x; });
+				const auto [min_y, max_y] = std::minmax_element(
+					result.vertices.begin(), result.vertices.end(),
+					[](const Point& a, const Point& b) { return a.y < b.y; });
+				result.x0 = std::max(clip_x0, static_cast<int>(std::floor(min_x->x)));
+				result.x1 = std::min(clip_x1, static_cast<int>(std::ceil(max_x->x)));
+				result.y0 = std::max(clip_y0, static_cast<int>(std::floor(min_y->y)));
+				result.y1 = std::min(clip_y1, static_cast<int>(std::ceil(max_y->y)));
+				if (result.x0 >= result.x1 || result.y0 >= result.y1) {
+					continue;
+				}
 
-			const auto [min_x, max_x] = std::minmax_element(
-				result.vertices.begin(), result.vertices.end(),
-				[](const Point& a, const Point& b) { return a.x < b.x; });
-			const auto [min_y, max_y] = std::minmax_element(
-				result.vertices.begin(), result.vertices.end(),
-				[](const Point& a, const Point& b) { return a.y < b.y; });
-			result.x0 = std::max(clip_x0, static_cast<int>(std::floor(min_x->x)));
-			result.x1 = std::min(clip_x1, static_cast<int>(std::ceil(max_x->x)));
-			result.y0 = std::max(clip_y0, static_cast<int>(std::floor(min_y->y)));
-			result.y1 = std::min(clip_y1, static_cast<int>(std::ceil(max_y->y)));
-			result.visible = result.x0 < result.x1 && result.y0 < result.y1;
+				result.color = {
+					color_component(color[0]), color_component(color[1]),
+					color_component(color[2]), 255,
+				};
+				visible.push_back(std::move(result));
+			}
 		});
 	}
 	if (!supported.load(std::memory_order_relaxed)) {
@@ -345,20 +373,19 @@ bool render_fast(py::buffer renderer_buffer, const py::args& args) {
 			const int band_y1 = clip_y0 + raster_height * static_cast<int>(band + 1) /
 				static_cast<int>(band_count);
 
-			for (const ProcessedQuad& quad : processed) {
-				if (!quad.visible) {
-					continue;
-				}
-				const int y0 = std::max(quad.y0, band_y0);
-				const int y1 = std::min(quad.y1, band_y1);
-				for (int y = y0; y < y1; ++y) {
-					for (int x = quad.x0; x < quad.x1; ++x) {
-						if (!contains(quad.vertices, Point{x + 0.5, y + 0.5})) {
-							continue;
+			for (const auto& visible : visible_by_job) {
+				for (const ProcessedQuad& quad : visible) {
+					const int y0 = std::max(quad.y0, band_y0);
+					const int y1 = std::min(quad.y1, band_y1);
+					for (int y = y0; y < y1; ++y) {
+						for (int x = quad.x0; x < quad.x1; ++x) {
+							if (!contains(quad.vertices, Point{x + 0.5, y + 0.5})) {
+								continue;
+							}
+							const int buffer_row = image_height - 1 - y;
+							auto* pixel = pixels + buffer_row * buffer.strides[0] + x * buffer.strides[1];
+							std::copy(quad.color.begin(), quad.color.end(), pixel);
 						}
-						const int buffer_row = image_height - 1 - y;
-						auto* pixel = pixels + buffer_row * buffer.strides[0] + x * buffer.strides[1];
-						std::copy(quad.color.begin(), quad.color.end(), pixel);
 					}
 				}
 			}
