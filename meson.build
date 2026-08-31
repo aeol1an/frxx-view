@@ -12,27 +12,4 @@ project(
 py = import('python').find_installation(pure: false)
 pybind11_dep = dependency('pybind11')
 
-py.install_sources('src/frxx_view.py')
-
-install_subdir(
-  'src/frxxv',
-  install_dir: py.get_install_dir(),
-  exclude_directories: [
-    '__pycache__',
-    'assets/__pycache__',
-    'controllers/__pycache__',
-    'ingest/__pycache__',
-    'ingest/case_types/__pycache__',
-    'ingest/file_types/__pycache__',
-    'plotting/__pycache__',
-    'pcolormesh',
-    'shell/__pycache__',
-    'shell/moments/__pycache__',
-    'shell/spectra/__pycache__',
-    'widgets/__pycache__',
-    'windows/__pycache__',
-  ],
-  install_tag: 'runtime',
-)
-
-subdir('src/frxxv/pcolormesh')
+subdir('src')
