@@ -20,7 +20,7 @@ Navigate to a directory of `cfrad.*.nc` files, and simply enter:
 frxxv
 ```
 
-Basic navigation is done with the forward and back keys on the keyboard. The layout can be changed with the top menu bar.
+Basic navigation is done with the forward and back keys on the keyboard. The layout can be changed with the top menu bar. Any panel can be selected by right-clicking it, and contents can be replotted via keys on the keyboard (e.g., `Z` for DBZ or `V` for velocity; for the full list, see the config section below), or with the :p command (`:help p`). `ESC` clears panel selection.
 
 ---
 
