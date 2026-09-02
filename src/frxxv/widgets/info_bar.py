@@ -1,6 +1,7 @@
 """Top bar showing instrument, scan time, and target angle."""
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel
 
+from frxxv.config import FOREGROUND_COLOR
 from frxxv.state import AppState
 
 
@@ -14,20 +15,24 @@ class InfoBar(QWidget):
 
         self.instrument_name_label = QLabel()
         self.instrument_name_label.setStyleSheet(
-            "font-weight: bold; font-size: 14px;"
+            f"color: {FOREGROUND_COLOR}; font-weight: bold; font-size: 14px;"
         )
         lay.addWidget(self.instrument_name_label)
 
         lay.addStretch()
 
         self.scan_time_label = QLabel()
-        self.scan_time_label.setStyleSheet("font-size: 14px;")
+        self.scan_time_label.setStyleSheet(
+            f"color: {FOREGROUND_COLOR}; font-size: 14px;"
+        )
         lay.addWidget(self.scan_time_label)
 
         lay.addStretch()
 
         self.target_angle_label = QLabel()
-        self.target_angle_label.setStyleSheet("font-size: 14px;")
+        self.target_angle_label.setStyleSheet(
+            f"color: {FOREGROUND_COLOR}; font-size: 14px;"
+        )
         lay.addWidget(self.target_angle_label)
 
         self.state.scan_changed.connect(self._refresh)

@@ -1,4 +1,6 @@
 """Top-level window for viewing and interacting with data."""
+import sys
+
 from PySide6.QtCore import (
     QEasingCurve,
     QParallelAnimationGroup,
@@ -11,6 +13,7 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QActionGroup, QKeyEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QApplication,
     QGraphicsOpacityEffect,
     QHBoxLayout,
     QLayout,
@@ -19,7 +22,14 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from frxxv.config import DEFAULT_LAYOUT, LAYOUTS
+from frxxv.config import (
+    BACKGROUND_COLOR,
+    FOREGROUND_COLOR,
+    TITLE_BAR_COLOR,
+    TITLE_BAR_TEXT_COLOR,
+    DEFAULT_LAYOUT,
+    LAYOUTS,
+)
 from frxxv.state import AppState
 from frxxv.shell.shell import execute as execute_shell_command
 from frxxv.shell.moments import execute as execute_moment_command
@@ -89,11 +99,85 @@ class DataWindow(QMainWindow):
             self._shell_shortcut.activated.connect(self._show_shell)
 
         self.resize(512, 362)
+        self._style_native_title_bar()
+
+    def _style_native_title_bar(self):
+        """Request a dark native caption, using exact colors when supported."""
+        if sys.platform == "win32":
+            self._style_windows_title_bar()
+            return
+
+        # Qt 6.8+ forwards this application-level hint to supporting platform
+        # integrations and decoration providers (including X11/Wayland ones).
+        app = QApplication.instance()
+        style_hints = app.styleHints() if app is not None else None
+        set_color_scheme = getattr(style_hints, "setColorScheme", None)
+        if set_color_scheme is not None:
+            set_color_scheme(Qt.ColorScheme.Dark)
+
+        if sys.platform == "darwin":
+            self._style_macos_title_bar()
+
+    def _style_windows_title_bar(self):
+        """Set exact native caption colors through Windows DWM."""
+        try:
+            import ctypes
+
+            def colorref(hex_color: str) -> int:
+                red, green, blue = bytes.fromhex(hex_color.lstrip("#"))
+                return red | (green << 8) | (blue << 16)
+
+            hwnd = int(self.winId())
+            dwm = ctypes.windll.dwmapi
+            for attribute, color in (
+                (35, TITLE_BAR_COLOR),       # DWMWA_CAPTION_COLOR
+                (36, TITLE_BAR_TEXT_COLOR),  # DWMWA_TEXT_COLOR
+            ):
+                value = ctypes.c_uint(colorref(color))
+                dwm.DwmSetWindowAttribute(
+                    hwnd,
+                    attribute,
+                    ctypes.byref(value),
+                    ctypes.sizeof(value),
+                )
+        except (AttributeError, OSError, ValueError):
+            # Older Windows releases may not expose caption color attributes.
+            pass
+
+    @staticmethod
+    def _style_macos_title_bar():
+        """Ask AppKit to use its native dark window appearance."""
+        try:
+            from AppKit import (  # type: ignore
+                NSAppearance,
+                NSAppearanceNameDarkAqua,
+                NSApplication,
+            )
+
+            appearance = NSAppearance.appearanceNamed_(
+                NSAppearanceNameDarkAqua
+            )
+            NSApplication.sharedApplication().setAppearance_(appearance)
+        except ImportError:
+            # Qt's color-scheme hint above remains the portable fallback.
+            pass
 
     # ── Menu bar ────────────────────────────────────────────────────
 
     def _build_menu_bar(self):
         mb = self.menuBar()
+        mb.setStyleSheet(
+            f"QMenuBar {{"
+            f"  background-color: {BACKGROUND_COLOR};"
+            f"  color: {FOREGROUND_COLOR};"
+            f"}}"
+            f"QMenuBar::item:selected {{ background-color: #454545; }}"
+            f"QMenu {{"
+            f"  background-color: {BACKGROUND_COLOR};"
+            f"  color: {FOREGROUND_COLOR};"
+            f"}}"
+            f"QMenu::item:selected {{ background-color: #454545; }}"
+        )
 
         # View → Layout
         view_menu   = mb.addMenu("&View")
@@ -124,6 +208,13 @@ class DataWindow(QMainWindow):
 
     def _build_central(self):
         central = QWidget()
+        central.setObjectName("central")
+        central.setStyleSheet(
+            f"QWidget#central {{"
+            f"  background-color: {BACKGROUND_COLOR};"
+            f"  color: {FOREGROUND_COLOR};"
+            f"}}"
+        )
         vbox = QVBoxLayout(central)
         vbox.setContentsMargins(4, 4, 4, 4)
         vbox.setSpacing(4)

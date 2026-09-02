@@ -15,6 +15,10 @@ All magic numbers live here so they're easy to find and change.
 # ── Appearance ──────────────────────────────────────────────────────
 BORDER_COLOR_UNSELECTED = "#8E8E93"   # Apple space grey
 BORDER_COLOR_SELECTED   = "#93C5FD"   # Pale blue
+BACKGROUND_COLOR        = "#323232"
+FOREGROUND_COLOR        = "#FFFFFF"
+TITLE_BAR_COLOR         = "#383938"
+TITLE_BAR_TEXT_COLOR    = "#B5B5B4"
 BORDER_WIDTH_PX  = 2
 BORDER_RADIUS_PX = 4
 
