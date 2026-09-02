@@ -6,23 +6,15 @@ from typing import Any
 
 import numpy as np
 
+from frxxv.shell.help import detailed_help
 from frxxv.state import ProductSpec
 
 
 MAX_PRODUCT_TITLE_LENGTH = 10
 DEFAULT_PRODUCT_TICKS = 5
 _PRODUCT_ARGUMENT_COUNTS = (1, 3, 5, 6, 7)
-_PRODUCT_USAGE = """Usage:
-  :p PRODUCT
-  :p RAW_FIELD SHORTHAND CMAP
-  :p RAW_FIELD SHORTHAND CMAP VMIN VMAX
-  :p RAW_FIELD SHORTHAND CMAP VMIN VMAX NTICKS
-  :p RAW_FIELD SHORTHAND CMAP VMIN VMAX NTICKS UNITS
-
-Custom VMIN and VMAX may both be empty strings to calculate fixed limits
-from the current data. NTICKS defaults to 5. With one optional trailing
-argument, an integer is NTICKS; any other value is UNITS. Products not
-present in the current data require explicit VMIN and VMAX."""
+_PRODUCT_USAGE = detailed_help("p")
+assert _PRODUCT_USAGE is not None
 
 
 def execute(
@@ -90,9 +82,6 @@ def _list_products(app_state, interaction_manager, shell_output: Any, args):
 
 
 def _set_product(app_state, interaction_manager, shell_output: Any, args):
-    if args == ("help",):
-        shell_output.emit(_PRODUCT_USAGE, 0)
-        return
     if len(args) not in _PRODUCT_ARGUMENT_COUNTS:
         shell_output.emit(_PRODUCT_USAGE, 1)
         return

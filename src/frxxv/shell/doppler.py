@@ -1,4 +1,4 @@
-"""Print unique Doppler acquisition parameters for the current sweep."""
+"""Display unique Doppler acquisition parameters for the current sweep."""
 from __future__ import annotations
 
 from typing import Any
@@ -50,7 +50,7 @@ def execute(
             )
         else:
             values = getattr(ingestible, attribute)
-    except (KeyError, LookupError, TypeError, ValueError) as error:
+    except (AttributeError, KeyError, LookupError, TypeError, ValueError) as error:
         shell_output.emit(str(error), 1)
         return
 

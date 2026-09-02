@@ -1,7 +1,6 @@
 python_sources = files(
     '__init__.py',
     'dealias.py',
-    'doppler.py',
     'nav.py',
     'savefig.py',
     'vals.py',

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import shlex
 from typing import Any, Callable
 
-from frxxv.shell import basic_edits, boundary, mask, prod_nav
+from frxxv.shell import basic_edits, boundary, doppler, help, mask, prod_nav
 
 
 class CommandParseError(ValueError):
@@ -28,8 +28,7 @@ class ShellParser:
 
     def parse(self, raw_command: str) -> ParsedCommand:
         text = raw_command.strip()
-        if text.startswith(":"):
-            text = text[1:].strip()
+        text = text.lstrip(":").strip()
 
         if not text:
             return ParsedCommand(name="", args=(), text="")
@@ -76,6 +75,10 @@ def execute(
         shell_output.emit(f"Could not parse command: {error}", 1)
         return None
 
+    if command.name == "help":
+        help.execute(shell_output, *command.args)
+        return None
+
     if command.name == "bnd":
         boundary.execute(
             app_state,
@@ -96,6 +99,16 @@ def execute(
 
     if command.name in ("lp", "p", "lock"):
         prod_nav.execute(
+            app_state,
+            interaction_manager,
+            shell_output,
+            command.name,
+            *command.args,
+        )
+        return None
+
+    if command.name in doppler.COMMANDS:
+        doppler.execute(
             app_state,
             interaction_manager,
             shell_output,
