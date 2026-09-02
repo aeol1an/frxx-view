@@ -6,11 +6,22 @@ from pathlib import Path
 import frxx.utils.pathUtils as pu
 import frxx.viz.defaultPlotParameters as dpp
 import json
+from matplotlib import colormaps
+import sys
 
 """
 Central configuration constants.
 All magic numbers live here so they're easy to find and change.
 """
+
+
+def _named_colormap(name, cmap):
+    """Register a custom default colormap and return its config-safe name."""
+    if name not in colormaps:
+        if isinstance(cmap, str):
+            cmap = colormaps[cmap]
+        colormaps.register(cmap, name=name)
+    return name
 
 # ── Appearance ──────────────────────────────────────────────────────
 BORDER_COLOR_UNSELECTED = "#8E8E93"   # Apple space grey
@@ -42,10 +53,11 @@ NUM_PANELS = 4  # total persistent panels (book pages)
 RESIZE_DEBOUNCE_MS      = 100
 DEFAULT_POLL_INTERVAL_MS = 2000
 
-class ConfigManager():
+class ConfigManager:
     default_config = {
         "DEFAULT_LAYOUT": "2x2",
         "outdir": "frxxv_output",
+        "device_pixel_ratio": 2.0,
         "initial_products": ["DBZ", "VEL", "ZDR", "RHOHV"],
 
         "products": {
@@ -68,14 +80,27 @@ class ConfigManager():
                 "key": "d",
                 "units": dpp.moments["ZDR"]["units"],
                 "clims": dpp.moments["ZDR"]["ranges"],
-                "cmap": dpp.moments["ZDR"]["cmap"],
+                "cmap": _named_colormap(
+                    "frxxdmap",
+                    dpp.moments["ZDR"]["cmap"],
+                ),
             },
             "RHOHV": {
                 "priority": ["RHOHV", "correlation_coefficient"],
                 "key": "r",
                 "units": dpp.moments["RHOHV"]["units"],
                 "clims": dpp.moments["RHOHV"]["ranges"],
-                "cmap": dpp.moments["RHOHV"]["cmap"],
+                "cmap": _named_colormap(
+                    "frxxrmap",
+                    dpp.moments["RHOHV"]["cmap"],
+                ),
+            },
+            "WIDTH": {
+                "priority": ["WIDTH", "spectrum_width"],
+                "key": "w",
+                "units": dpp.moments["WIDTH"]["units"],
+                "clims": dpp.moments["WIDTH"]["ranges"],
+                "cmap": dpp.moments["WIDTH"]["cmap"],
             }
         }
     }
@@ -85,6 +110,7 @@ class ConfigManager():
     config_schema = {
         "DEFAULT_LAYOUT": str,
         "outdir": str,
+        "device_pixel_ratio": float,
         "initial_products": list,
         "products": {
             "*": {
@@ -97,32 +123,98 @@ class ConfigManager():
         },
     }
 
-    def __init__(self):
+    def __init__(self, config_path: Path | None = None):
         self.user_config = deepcopy(self.default_config)
-        self.config_path = Path(pd.user_config_dir("frxx"))/"frxxv.json"
-        self.config_path.parent.mkdir(parents=True, exist_ok=True)
+        self.config_path = config_path or (
+            Path(pd.user_config_dir("frxx")) / "frxxv.json"
+        )
+        self.config_files = self._load_config_files()
+        self._load_overrides()
 
-        if self.config_path.exists() and self.config_path.stat().st_size > 0:
-            with open(self.config_path, "r") as f:
-                self.config_files = json.load(f)
-        else:
-            self.config_files = []
-            with open(self.config_path, "w") as f:
-                json.dump(self.config_files, f)
+    def _load_config_files(self) -> list:
+        """Load the ordered override path list, falling back to no overrides."""
+        try:
+            self.config_path.parent.mkdir(parents=True, exist_ok=True)
+            if not self.config_path.exists() or self.config_path.stat().st_size == 0:
+                self._write_config_files([])
+                return []
+            with self.config_path.open("r") as config_file:
+                config_files = json.load(config_file)
+            if not isinstance(config_files, list):
+                raise TypeError(
+                    f"Config index must contain a list: {self.config_path}"
+                )
+            return config_files
+        except Exception as error:
+            self._report_error("Could not load config index", error)
+            return []
 
-        for file in self.config_files:
-            config_path = pu.jsonToPath(file)
-            with config_path.open("r") as f:
-                override = json.load(f)
+    def _load_overrides(self):
+        """Apply valid absolute-path overrides in their listed order."""
+        for encoded_path in self.config_files:
+            try:
+                config_path = pu.jsonToPath(encoded_path)
+            except Exception as error:
+                self._report_error("Invalid config path", error)
+                continue
+            self.apply_config(config_path)
 
+    def apply_config(self, config_path: Path) -> bool:
+        """Atomically apply one absolute config override."""
+        try:
+            if not config_path.is_absolute():
+                raise ValueError(f"Config path must be absolute: {config_path}")
+            with config_path.open("r") as config_file:
+                override = json.load(config_file)
             if not isinstance(override, dict):
-                raise TypeError(f"Config file must contain an object: {config_path}")
+                raise TypeError(
+                    f"Config file must contain an object: {config_path}"
+                )
+
+            merged = deepcopy(self.user_config)
             self._merge_config(
-                self.user_config,
+                merged,
                 override,
                 self.config_schema,
                 config_path,
             )
+        except Exception as error:
+            self._report_error(f"Could not load config {config_path}", error)
+            return False
+
+        self.user_config = merged
+        return True
+
+    def add_config(self, config_path: Path):
+        """Append an absolute config-file path to the override index."""
+        config_path = config_path.expanduser().resolve()
+        if not config_path.is_file():
+            raise FileNotFoundError(f"Config file does not exist: {config_path}")
+        encoded_path = pu.pathToJson(config_path)
+        self.config_files.append(encoded_path)
+        self._write_config_files(self.config_files)
+
+    def remove_config(self, config_path: Path):
+        """Remove one absolute config-file path from the override index."""
+        config_path = config_path.expanduser().resolve()
+        encoded_path = pu.pathToJson(config_path)
+        try:
+            self.config_files.remove(encoded_path)
+        except ValueError as error:
+            raise ValueError(
+                f"Config path is not registered: {config_path}"
+            ) from error
+        self._write_config_files(self.config_files)
+
+    def _write_config_files(self, config_files: list):
+        """Write the ordered override path list to the config index."""
+        with self.config_path.open("w") as config_file:
+            json.dump(config_files, config_file, indent=2)
+            config_file.write("\n")
+
+    @staticmethod
+    def _report_error(context, error):
+        print(f"{context}: {type(error).__name__}: {error}", file=sys.stderr)
 
     @classmethod
     def _merge_config(cls, dest, src, schema, config_path, key_path=""):
@@ -166,3 +258,7 @@ class ConfigManager():
 
 USER_CONFIG = ConfigManager()
 DEFAULT_LAYOUT = USER_CONFIG.user_config["DEFAULT_LAYOUT"]
+
+# TODO(config): validate required product fields and setting semantics; support
+# removing inherited products, live reload, and runtime refresh of snapshotted
+# settings such as DEFAULT_LAYOUT, keyboard mappings, and panel DPI.

@@ -28,6 +28,7 @@ from frxxv.config import (
     MIN_PANEL_WIDTH_INCHES,
     MIN_PANEL_HEIGHT_INCHES,
     RESIZE_DEBOUNCE_MS,
+    USER_CONFIG,
 )
 from frxxv.state import PanelState, AppState
 from frxxv.controllers.panel_lims_controller import PanelLimsController
@@ -56,9 +57,16 @@ class PanelFrame(QFrame):
         self._inner_layout.setContentsMargins(margin, margin, margin, margin)
         self._inner_layout.setSpacing(0)
 
-        # Minimum size derived from config (in pixels at current logical DPI)
-        self.dpi_x = max(self.logicalDpiX()*self.devicePixelRatio(), 72)
-        self.dpi_y = max(self.logicalDpiY()*self.devicePixelRatio(), 72)
+        # Minimum size derived from config (in pixels at configured DPI)
+        self.device_pixel_ratio = USER_CONFIG.user_config["device_pixel_ratio"]
+        self.dpi_x = max(
+            self.logicalDpiX() * self.device_pixel_ratio,
+            72,
+        )
+        self.dpi_y = max(
+            self.logicalDpiY() * self.device_pixel_ratio,
+            72,
+        )
         self.setMinimumSize(
             int(MIN_PANEL_WIDTH_INCHES * self.dpi_x),
             int(MIN_PANEL_HEIGHT_INCHES * self.dpi_y),
@@ -393,12 +401,14 @@ class PanelFrame(QFrame):
 
     @property
     def width_inches(self) -> float:
-        return self.width() / max(self.logicalDpiX()*self.devicePixelRatio() , 72)
+        dpi = self.logicalDpiX() * self.device_pixel_ratio
+        return self.width() / max(dpi, 72)
 
     @property
     def height_inches(self) -> float:
-        return self.height() / max(self.logicalDpiY()*self.devicePixelRatio(), 72)
+        dpi = self.logicalDpiY() * self.device_pixel_ratio
+        return self.height() / max(dpi, 72)
     
     @property
     def display_dpi(self) -> float:
-        return max(self.logicalDpiX()*self.devicePixelRatio() , 72)
+        return max(self.logicalDpiX() * self.device_pixel_ratio, 72)

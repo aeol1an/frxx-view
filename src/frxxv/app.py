@@ -5,20 +5,25 @@ from importlib import resources
 from pathlib import Path
 from shutil import copyfile
 
-from PySide6.QtWidgets import QApplication
-from PySide6.QtGui import QIcon
-
-from frxxv import pcolormesh
-from frxxv.args import parse_args
-from frxxv.state import AppState
-
-from frxx.utils.pathUtils import getPlatform
+from frxxv.args import handle_config_action, parse_args
 
 
 def main(argv=None):
-    pcolormesh.install()
-
     args = parse_args(argv)
+    if handle_config_action(args):
+        return
+
+    from frxxv import config as app_config
+    from frxxv import pcolormesh
+
+    if args.config is not None:
+        temporary_config = args.config.expanduser().resolve()
+        app_config.USER_CONFIG.apply_config(temporary_config)
+        app_config.DEFAULT_LAYOUT = app_config.USER_CONFIG.user_config[
+            "DEFAULT_LAYOUT"
+        ]
+
+    pcolormesh.install()
     starting_directory = args.directory.expanduser().resolve()
 
     icon = resources.files("frxxv").joinpath("assets", "frxx_icon.png")
@@ -27,6 +32,11 @@ def main(argv=None):
 
 
 def _run_app(args, starting_directory, icon_path):
+    from PySide6.QtGui import QIcon
+    from PySide6.QtWidgets import QApplication
+
+    from frxx.utils.pathUtils import getPlatform
+    from frxxv.state import AppState
 
     sys.argv[0] = "Frxx View"
     app = QApplication([sys.argv[0]])
