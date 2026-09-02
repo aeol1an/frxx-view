@@ -14,7 +14,7 @@ pip install frxx-view
 
 ### Basic Usage
 
-Navigate to a directory of cfradial or other pyart-compatible files, and simply enter:
+Navigate to a directory of `cfrad.*.nc` files, and simply enter:
 
 ```bash
 frxxv
