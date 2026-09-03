@@ -206,8 +206,8 @@ register_backend(
     "cfradial",
     case_type="directory",
     file_type="cfradial",
-    case_kwargs={"file_globs": ("cfradial.*.nc",)},
-    detector=_has_files("cfradial.*.nc"),
+    case_kwargs={"file_globs": ("cfrad.*.nc",)},
+    detector=_has_files("cfrad.*.nc"),
     auto_priority=10,
 )
 register_backend(

@@ -13,7 +13,7 @@ from numpy.typing import NDArray
 
 from PySide6.QtCore import QObject, Signal
 
-from frxxv.config import DEFAULT_LAYOUT, LAYOUTS, NUM_PANELS
+from frxxv.config import DEFAULT_LAYOUT, NUM_PANELS
 from frxxv.ingest.file_ingestible import FileIngestible
 
 if TYPE_CHECKING:
@@ -111,9 +111,7 @@ class AppState(QObject):
             state=self,
         )
 
-        visible = len(LAYOUTS[self.layout])
-        for i in range(visible):
-            panel = self.main_window.panel_grid.panels[i]
+        for i, panel in enumerate(self.main_window.panel_grid.panels):
             if self.scan_data is not None:
                 panel.state.product = (
                     self.main_window.product_manager.select_initial(i)

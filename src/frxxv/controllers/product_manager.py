@@ -113,6 +113,22 @@ class ProductManager:
             units=product.units,
         )
 
+    def no_product(self) -> ResolvedProduct | None:
+        """Provide a blank field for a panel with no selected product."""
+        data = self._empty_sweep()
+        if data is None:
+            return None
+        return ResolvedProduct(
+            raw_field="",
+            data=data,
+            title="No Product",
+            cmap="gray",
+            vmin=0.0,
+            vmax=1.0,
+            nticks=2,
+            units="",
+        )
+
     def available_products(self) -> list[str]:
         """List every raw product addressable by product navigation."""
         return self._known_product_names()

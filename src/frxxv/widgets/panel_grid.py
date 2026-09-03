@@ -114,6 +114,7 @@ class PanelGrid(QWidget):
     def _apply_layout(self, layout_key: str):
         # Capture current panel size BEFORE layout change
         panel_size = self.panels[0].size()
+        was_visible = [panel.isVisible() for panel in self.panels]
 
         for panel in self.panels:
             self._grid.removeWidget(panel)
@@ -134,8 +135,11 @@ class PanelGrid(QWidget):
             panel.setFixedSize(panel_size)
 
         for i, (r, c, rs, cs) in enumerate(positions):
-            self._grid.addWidget(self.panels[i], r, c, rs, cs)
-            self.panels[i].show()
+            panel = self.panels[i]
+            self._grid.addWidget(panel, r, c, rs, cs)
+            panel.show()
+            if not was_visible[i] and panel.canvas is None:
+                panel.replot()
 
         if self.state.selected is not None and self.state.selected >= len(positions):
             self.state.selected = None

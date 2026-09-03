@@ -24,7 +24,11 @@ def ppi_factory(
     """
     data = app_state.scan_data
     product = panel_state.product
-    resolved = window.product_manager.resolve(product)
+    no_product = product is None
+    if no_product:
+        resolved = window.product_manager.no_product()
+    else:
+        resolved = window.product_manager.resolve(product)
     if data is None or resolved is None:
         return
 
@@ -48,6 +52,9 @@ def ppi_factory(
         cmap=resolved.cmap,
         backend=False
     )
+    if no_product:
+        cb.remove()
+        cb = None
     panel_state.fig      = fig
     panel_state.ax       = ax
     panel_state.plot     = mesh
