@@ -2,7 +2,9 @@ from ..case_ingest import CaseIngest
 
 
 class Directory(CaseIngest):
-    file_globs = ("cfrad.*.nc",)
+    def __init__(self, directory, loader, file_globs):
+        self.file_globs = tuple(file_globs)
+        super().__init__(directory, loader)
 
     def update(self):
         self.files = sorted(

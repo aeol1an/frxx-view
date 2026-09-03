@@ -73,10 +73,12 @@ class AppState(QObject):
         self,
         starting_directory: Path,
         initial_index: int = 0,
+        backend: str = "cfradial",
         parent: QObject | None = None,
     ):
         super().__init__(parent)
         self.starting_directory = starting_directory.expanduser().resolve()
+        self.backend = backend
         self._layout: str = DEFAULT_LAYOUT
         self._selected: Optional[int] = None
         self.panels: List[PanelState] = [PanelState() for _ in range(NUM_PANELS)]
@@ -92,17 +94,13 @@ class AppState(QObject):
         # AppState. AppState owns their construction and lifetime.
         from frxxv.controllers.file_manager import FileManager
         from frxxv.controllers.plot_controller import PlotController
-        from frxxv.ingest.case_types.directory import Directory
-        from frxxv.ingest.file_types.pyart import PyartFile
+        from frxxv.ingest.registry import create_case
         from frxxv.plotting.ppi import ppi_factory
         from frxxv.windows.data_window import DataWindow
 
-        case_directory_found = (
-            self.starting_directory / "frxx_cases"
-        ).is_dir()
-        self.case: "CaseIngest" = Directory(
+        self.case: "CaseIngest" = create_case(
+            backend,
             self.starting_directory,
-            loader=PyartFile,
         )
         self.plot_controller = PlotController(self)
         self.file_manager: "FileManager" = FileManager(self, self)
@@ -121,12 +119,6 @@ class AppState(QObject):
                     self.main_window.product_manager.select_initial(i)
                 )
             panel.set_plot_factory(ppi_factory)
-
-        if case_directory_found:
-            self.main_window.shell_output.emit(
-                "frxx_cases is not implemented; treating as a directory",
-                1,
-            )
 
         if self.scan_data is not None:
             self.scan_changed.emit()

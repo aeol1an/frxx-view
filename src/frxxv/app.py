@@ -6,6 +6,7 @@ from pathlib import Path
 from shutil import copyfile
 
 from frxxv.args import handle_config_action, parse_args
+from frxxv.ingest.registry import select_backend
 
 
 def main(argv=None):
@@ -25,13 +26,14 @@ def main(argv=None):
 
     pcolormesh.install()
     starting_directory = args.directory.expanduser().resolve()
+    backend = select_backend(starting_directory, args.backend)
 
     icon = resources.files("frxxv").joinpath("assets", "frxx_icon.png")
     with resources.as_file(icon) as icon_path:
-        _run_app(args, starting_directory, str(icon_path))
+        _run_app(args, starting_directory, backend, str(icon_path))
 
 
-def _run_app(args, starting_directory, icon_path):
+def _run_app(args, starting_directory, backend, icon_path):
     from PySide6.QtGui import QIcon
     from PySide6.QtWidgets import QApplication
 
@@ -79,6 +81,7 @@ def _run_app(args, starting_directory, icon_path):
 
     state = AppState(
         starting_directory,
+        backend=backend,
         initial_index=args.filenum,
         parent=app,
     )

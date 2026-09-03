@@ -28,6 +28,16 @@ def parse_args(argv=None):
         help="zero-based index of the first file to open (default: 0)",
     )
     parser.add_argument(
+        "-b",
+        "--backend",
+        default="auto",
+        metavar="NAME",
+        help=(
+            "radar file backend to use: auto, frxx, cfradial, dorade, or "
+            "pyart (default: auto)"
+        ),
+    )
+    parser.add_argument(
         "-c",
         "--config",
         type=Path,

@@ -1,7 +1,8 @@
 python_sources = files(
     '__init__.py',
     'case_ingest.py',
-    'file_ingestible.py'
+    'file_ingestible.py',
+    'registry.py'
 )
 
 py.install_sources(

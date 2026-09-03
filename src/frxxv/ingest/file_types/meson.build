@@ -9,3 +9,5 @@ py.install_sources(
     subdir: 'frxxv/ingest/file_types',
     install_tag: 'runtime'
 )
+
+subdir('dorade')
