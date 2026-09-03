@@ -186,11 +186,16 @@ class ConfigManager:
         return True
 
     def add_config(self, config_path: Path):
-        """Append an absolute config-file path to the override index."""
+        """Append a config path, moving an existing entry to highest priority."""
         config_path = config_path.expanduser().resolve()
         if not config_path.is_file():
             raise FileNotFoundError(f"Config file does not exist: {config_path}")
         encoded_path = pu.pathToJson(config_path)
+        if any(
+            pu.pathJsonEqual(existing_path, encoded_path)
+            for existing_path in self.config_files
+        ):
+            self.remove_config(config_path)
         self.config_files.append(encoded_path)
         self._write_config_files(self.config_files)
 
@@ -198,13 +203,19 @@ class ConfigManager:
         """Remove one absolute config-file path from the override index."""
         config_path = config_path.expanduser().resolve()
         encoded_path = pu.pathToJson(config_path)
-        try:
-            self.config_files.remove(encoded_path)
-        except ValueError as error:
+        for index, existing_path in enumerate(self.config_files):
+            if pu.pathJsonEqual(existing_path, encoded_path):
+                self.config_files.pop(index)
+                break
+        else:
             raise ValueError(
                 f"Config path is not registered: {config_path}"
-            ) from error
+            )
         self._write_config_files(self.config_files)
+
+    def list_config(self) -> list[Path]:
+        """Return the configured override files as decoded paths."""
+        return [pu.jsonToPath(encoded_path) for encoded_path in self.config_files]
 
     def _write_config_files(self, config_files: list):
         """Write the ordered override path list to the config index."""

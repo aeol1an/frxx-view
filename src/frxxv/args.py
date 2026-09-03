@@ -48,6 +48,11 @@ def parse_args(argv=None):
         help="remove a config file from the override list and exit",
     )
     config_actions.add_argument(
+        "--listconfig",
+        action="store_true",
+        help="list config files in override order and exit",
+    )
+    config_actions.add_argument(
         "--dumpconfig",
         action="store_true",
         help="print the default config as JSON and exit",
@@ -57,7 +62,12 @@ def parse_args(argv=None):
 
 def handle_config_action(args) -> bool:
     """Run a requested config-only action and report whether one was present."""
-    if not (args.addconfig or args.removeconfig or args.dumpconfig):
+    if not (
+        args.addconfig
+        or args.removeconfig
+        or args.listconfig
+        or args.dumpconfig
+    ):
         return False
 
     from frxxv.config import ConfigManager, USER_CONFIG
@@ -71,6 +81,9 @@ def handle_config_action(args) -> bool:
             config_path = args.removeconfig.expanduser().resolve()
             USER_CONFIG.remove_config(config_path)
             print(f"Removed config: {config_path}")
+        elif args.listconfig:
+            for config_path in USER_CONFIG.list_config():
+                print(config_path)
         else:
             print(json.dumps(ConfigManager.default_config, indent=2))
     except Exception as error:
