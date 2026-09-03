@@ -4,7 +4,7 @@ build-backend = "mesonpy"
 
 [project]
 name = "frxx-view"
-version = "0.1.5"
+version = "0.1.5.1"
 description = "Weather radar visualization GUI for (but not limited to) frxx."
 readme = "README.md"
 requires-python = ">=3.10"
