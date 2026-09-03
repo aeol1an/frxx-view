@@ -16,6 +16,24 @@
 #include <thread>
 #include <vector>
 
+// Set this to true to enable diagnostics regardless of the build type.
+#define FRXXPCMDEBUG false
+
+// C++ compilers do not define a portable macro specifically for -g. Debug
+// builds conventionally omit NDEBUG, while release builds define it.
+#ifdef NDEBUG
+#define FRXXPCM_SYSTEM_DEBUG false
+#else
+#define FRXXPCM_SYSTEM_DEBUG true
+#endif
+
+#define FRXXPCM_DEBUG_LOG(message) \
+	do { \
+		if constexpr (FRXXPCMDEBUG || FRXXPCM_SYSTEM_DEBUG) { \
+			std::cerr << message << std::endl; \
+		} \
+	} while (false)
+
 namespace py = pybind11;
 
 namespace {
@@ -167,6 +185,45 @@ bool is_convex(const std::array<Point, 4>& quad) {
 	return !(positive && negative);
 }
 
+enum class QuadGeometry : std::uint8_t {
+	convex,
+	reordered,
+	unsupported,
+};
+
+QuadGeometry normalize_quad(std::array<Point, 4>& quad) {
+	if (is_convex(quad)) {
+		return QuadGeometry::convex;
+	}
+
+	// A bow-tie generally still consists of four points on a convex hull; only
+	// their traversal order is crossed. Sorting around the centroid restores a
+	// cyclic perimeter without guessing which particular pair should be swapped.
+	Point centroid{0.0, 0.0};
+	for (const Point& point : quad) {
+		centroid.x += point.x;
+		centroid.y += point.y;
+	}
+	centroid.x /= static_cast<double>(quad.size());
+	centroid.y /= static_cast<double>(quad.size());
+	std::sort(quad.begin(), quad.end(), [&centroid](const Point& a, const Point& b) {
+		const double angle_a = std::atan2(a.y - centroid.y, a.x - centroid.x);
+		const double angle_b = std::atan2(b.y - centroid.y, b.x - centroid.x);
+		if (angle_a != angle_b) {
+			return angle_a < angle_b;
+		}
+		const double distance_a =
+			(a.x - centroid.x) * (a.x - centroid.x) +
+			(a.y - centroid.y) * (a.y - centroid.y);
+		const double distance_b =
+			(b.x - centroid.x) * (b.x - centroid.x) +
+			(b.y - centroid.y) * (b.y - centroid.y);
+		return distance_a < distance_b;
+	});
+
+	return is_convex(quad) ? QuadGeometry::reordered : QuadGeometry::unsupported;
+}
+
 bool contains(const std::array<Point, 4>& quad, const Point& point) {
 	bool positive = false;
 	bool negative = false;
@@ -189,16 +246,24 @@ bool render_fast(py::buffer renderer_buffer, const py::args& args) {
 	//   2: mesh width          7: face colors
 	//   3: mesh height         8: antialiasing enabled
 	//   4: corner coordinates  9: edge colors
-	if (args.size() != 10 || args[8].cast<bool>()) {
+	if (args.size() != 10) {
+		FRXXPCM_DEBUG_LOG("pcolormesh render_fast fallback: expected 10 arguments, got "
+			<< args.size());
+		return false;
+	}
+	if (args[8].cast<bool>()) {
+		FRXXPCM_DEBUG_LOG("pcolormesh render_fast fallback: antialiasing is enabled");
 		return false;
 	}
 
 	py::object gc = args[0];
 	if (!gc.attr("get_hatch")().is_none()) {
+		FRXXPCM_DEBUG_LOG("pcolormesh render_fast fallback: hatching is enabled");
 		return false;
 	}
 	py::tuple clip_path = gc.attr("get_clip_path")().cast<py::tuple>();
 	if (!clip_path[0].is_none()) {
+		FRXXPCM_DEBUG_LOG("pcolormesh render_fast fallback: a clip path is set");
 		return false;
 	}
 
@@ -213,12 +278,16 @@ bool render_fast(py::buffer renderer_buffer, const py::args& args) {
 	auto facecolors = py::array_t<double, py::array::c_style | py::array::forcecast>::ensure(args[7]);
 	auto edgecolors = py::array_t<double, py::array::c_style | py::array::forcecast>::ensure(args[9]);
 	if (!coordinates || !offsets || !facecolors || !edgecolors) {
+		FRXXPCM_DEBUG_LOG("pcolormesh render_fast fallback: coordinates, offsets, "
+			"facecolors, or edgecolors could not be converted to a C-contiguous double array");
 		return false;
 	}
 	if (py::hasattr(args[4], "mask")) {
 		py::object mask = args[4].attr("mask");
 		if ((py::isinstance<py::array>(mask) && mask.attr("any")().cast<bool>()) ||
 			(!py::isinstance<py::array>(mask) && mask.cast<bool>())) {
+			FRXXPCM_DEBUG_LOG(
+				"pcolormesh render_fast fallback: coordinates contain masked values");
 			return false;
 		}
 	}
@@ -228,6 +297,12 @@ bool render_fast(py::buffer renderer_buffer, const py::args& args) {
 		coordinates.shape(2) != 2 || offsets.ndim() != 2 || offsets.shape(1) != 2 ||
 		facecolors.ndim() != 2 || facecolors.shape(1) != 4 || facecolors.shape(0) == 0 ||
 		edgecolors.ndim() != 2 || edgecolors.shape(0) != 0) {
+		FRXXPCM_DEBUG_LOG(
+			"pcolormesh render_fast fallback: unsupported coordinate/color shapes; "
+			<< "coordinates=" << py::str(coordinates.attr("shape")).cast<std::string>()
+			<< ", offsets=" << py::str(offsets.attr("shape")).cast<std::string>()
+			<< ", facecolors=" << py::str(facecolors.attr("shape")).cast<std::string>()
+			<< ", edgecolors=" << py::str(edgecolors.attr("shape")).cast<std::string>());
 		return false;
 	}
 
@@ -235,23 +310,31 @@ bool render_fast(py::buffer renderer_buffer, const py::args& args) {
 	// offsets remain on Matplotlib's path until they have a measured use case.
 	if (offsets.shape(0) != 1 || std::abs(*offsets.data(0, 0)) > 1e-12 ||
 		std::abs(*offsets.data(0, 1)) > 1e-12) {
+		FRXXPCM_DEBUG_LOG(
+			"pcolormesh render_fast fallback: expected one zero offset, got shape[0]="
+			<< offsets.shape(0));
 		return false;
 	}
 
 	auto matrix = py::array_t<double, py::array::c_style | py::array::forcecast>::ensure(
 		args[1].attr("get_matrix")());
 	if (!matrix || matrix.ndim() != 2 || matrix.shape(0) != 3 || matrix.shape(1) != 3) {
+		FRXXPCM_DEBUG_LOG("pcolormesh render_fast fallback: transform matrix is not a 3x3 "
+			"C-contiguous double array");
 		return false;
 	}
 	const double* m = matrix.data();
 
 	py::object clip_rectangle = gc.attr("get_clip_rectangle")();
 	if (clip_rectangle.is_none()) {
+		FRXXPCM_DEBUG_LOG("pcolormesh render_fast fallback: no clip rectangle is set");
 		return false;
 	}
 	auto clip_extents = py::array_t<double, py::array::c_style | py::array::forcecast>::ensure(
 		clip_rectangle.attr("extents"));
 	if (!clip_extents || clip_extents.size() != 4) {
+		FRXXPCM_DEBUG_LOG("pcolormesh render_fast fallback: clip rectangle extents could "
+			"not be converted to four doubles");
 		return false;
 	}
 
@@ -272,12 +355,16 @@ bool render_fast(py::buffer renderer_buffer, const py::args& args) {
 	for (std::size_t i = 0; i < color_count; ++i) {
 		const double alpha = colors[i * 4 + 3];
 		if (std::abs(alpha) > 1e-12 && std::abs(alpha - 1.0) > 1e-12) {
+			FRXXPCM_DEBUG_LOG("pcolormesh render_fast fallback: facecolor " << i
+				<< " has unsupported alpha=" << alpha);
 			return false;
 		}
 	}
 
 	py::buffer_info buffer = renderer_buffer.request(true);
 	if (buffer.ndim != 3 || buffer.shape[2] != 4 || buffer.itemsize != 1) {
+		FRXXPCM_DEBUG_LOG("pcolormesh render_fast fallback: renderer buffer must have "
+			"ndim=3, four channels, and one-byte items");
 		return false;
 	}
 
@@ -295,6 +382,11 @@ bool render_fast(py::buffer renderer_buffer, const py::args& args) {
 		quad_count, quad_worker_pool().size());
 	std::vector<std::vector<ProcessedQuad>> visible_by_job(preprocessing_job_count);
 	std::atomic<bool> supported = true;
+	std::atomic<std::size_t> non_finite_quad{quad_count};
+	std::atomic<std::size_t> first_reordered_quad{quad_count};
+	std::atomic<std::size_t> first_skipped_quad{quad_count};
+	std::atomic<std::size_t> reordered_quad_count{0};
+	std::atomic<std::size_t> skipped_quad_count{0};
 
 	// The pool is process-wide and its threads persist across every draw.
 	// Each worker builds a compact list for one contiguous input range. Merging
@@ -324,13 +416,25 @@ bool render_fast(py::buffer renderer_buffer, const py::args& args) {
 
 				for (const Point& point : result.vertices) {
 					if (!std::isfinite(point.x) || !std::isfinite(point.y)) {
+						std::size_t expected = quad_count;
+						non_finite_quad.compare_exchange_strong(
+							expected, index, std::memory_order_relaxed);
 						supported.store(false, std::memory_order_relaxed);
 						return;
 					}
 				}
-				if (!is_convex(result.vertices)) {
-					supported.store(false, std::memory_order_relaxed);
-					return;
+				const QuadGeometry geometry = normalize_quad(result.vertices);
+				if (geometry == QuadGeometry::reordered) {
+					std::size_t expected = quad_count;
+					first_reordered_quad.compare_exchange_strong(
+						expected, index, std::memory_order_relaxed);
+					reordered_quad_count.fetch_add(1, std::memory_order_relaxed);
+				} else if (geometry == QuadGeometry::unsupported) {
+					std::size_t expected = quad_count;
+					first_skipped_quad.compare_exchange_strong(
+						expected, index, std::memory_order_relaxed);
+					skipped_quad_count.fetch_add(1, std::memory_order_relaxed);
+					continue;
 				}
 
 				const auto [min_x, max_x] = std::minmax_element(
@@ -355,7 +459,24 @@ bool render_fast(py::buffer renderer_buffer, const py::args& args) {
 			}
 		});
 	}
+	const std::size_t reordered_count = reordered_quad_count.load(std::memory_order_relaxed);
+	if (reordered_count != 0) {
+		FRXXPCM_DEBUG_LOG("pcolormesh render_fast: reordered " << reordered_count
+			<< " bow-tie quad(s); first was quad "
+			<< first_reordered_quad.load(std::memory_order_relaxed));
+	}
+	const std::size_t skipped_count = skipped_quad_count.load(std::memory_order_relaxed);
+	if (skipped_count != 0) {
+		FRXXPCM_DEBUG_LOG("pcolormesh render_fast: skipped " << skipped_count
+			<< " irreparable concave quad(s); first was quad "
+			<< first_skipped_quad.load(std::memory_order_relaxed));
+	}
 	if (!supported.load(std::memory_order_relaxed)) {
+		const std::size_t non_finite = non_finite_quad.load(std::memory_order_relaxed);
+		if (non_finite != quad_count) {
+			FRXXPCM_DEBUG_LOG("pcolormesh render_fast fallback: quad " << non_finite
+				<< " has non-finite transformed coordinates");
+		}
 		return false;
 	}
 
@@ -399,9 +520,10 @@ bool render_fast(py::buffer renderer_buffer, const py::args& args) {
 py::object draw_quad_mesh(py::object fallback, py::args args) {
 	py::buffer renderer_buffer = fallback.attr("__self__").cast<py::buffer>();
 	if (render_fast(renderer_buffer, args)) {
-		//std::cout << "fast" << std::endl;
+		// FRXXPCM_DEBUG_LOG("fast");
 		return py::none();
 	}
+	// FRXXPCM_DEBUG_LOG("fell back");
 	return fallback(*args);
 }
 
